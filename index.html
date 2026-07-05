@@ -34,7 +34,7 @@
             color: var(--dark);
         }
 
-        /* --- Main Container (Modern Card) --- */
+        /* --- Main Container --- */
         .container { 
             width: 100%; 
             max-width: 420px; 
@@ -67,7 +67,6 @@
         .dash-card h4 { margin: 0; font-size: 12px; color: var(--gray); text-transform: uppercase; letter-spacing: 0.5px; }
         .dash-card span { display: block; margin-top: 5px; font-size: 18px; font-weight: bold; color: var(--dark); }
         
-        /* Specific Card Colors */
         #dashUsedVal { color: var(--primary); }
         #dashBalanceVal { color: var(--success); }
 
@@ -103,6 +102,19 @@
         }
         input:focus, select:focus { border-color: var(--primary); outline: none; }
         
+        /* Flex row for Date and Time inputs */
+        .input-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .input-row > div {
+            flex: 1;
+        }
+        .input-row input {
+            margin-bottom: 0;
+        }
+        
         /* --- Buttons --- */
         button { 
             width: 100%; 
@@ -123,7 +135,6 @@
         .btn-reset { background: var(--danger); margin-top: 10px; }
         .btn-png { background: var(--dark); margin-top: 15px; }
         
-        /* Action Icons (Edit & Delete) */
         .action-btns { display: flex; justify-content: space-around; }
         .btn-icon {
             background: none; border: none; box-shadow: none; font-size: 18px;
@@ -137,7 +148,6 @@
         th { background-color: var(--light); font-weight: 600; color: var(--gray); text-transform: uppercase; font-size: 12px; }
         tr:last-child td { border-bottom: none; }
         
-        /* Category Badge */
         .badge {
             display: inline-block;
             padding: 4px 8px;
@@ -146,6 +156,14 @@
             background: var(--light);
             color: var(--gray);
             font-weight: bold;
+            margin-top: 4px;
+        }
+        
+        /* Date & Time small text in table */
+        .date-time-text {
+            display: block;
+            font-size: 11px;
+            color: var(--gray);
             margin-top: 4px;
         }
 
@@ -189,6 +207,17 @@
     <input type="text" id="itemName" placeholder="Item Name (e.g. Khana)">
     <input type="number" id="itemPrice" placeholder="Amount (Rs)">
     
+    <div class="input-row">
+        <div>
+            <label style="font-size: 12px; color: var(--gray);">Date</label>
+            <input type="date" id="itemDate">
+        </div>
+        <div>
+            <label style="font-size: 12px; color: var(--gray);">Time</label>
+            <input type="time" id="itemTime">
+        </div>
+    </div>
+
     <select id="itemCategory">
         <option value="🍔 Food">🍔 Food</option>
         <option value="🚗 Transport">🚗 Transport</option>
@@ -228,10 +257,47 @@
     let expenses = JSON.parse(localStorage.getItem('expensesArray')) || [];
     let editIndex = -1; 
 
+    // Jab app khule, data load ho aur current date/time set ho
     window.onload = () => {
         document.getElementById('totalBudget').value = localStorage.getItem('budget') || '';
+        setCurrentDateTime();
         renderTable();
     };
+
+    // Current Date aur Time nikalne ka function
+    function setCurrentDateTime() {
+        const now = new Date();
+        
+        // Format Date to YYYY-MM-DD
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        document.getElementById('itemDate').value = `${year}-${month}-${day}`;
+        
+        // Format Time to HH:MM
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        document.getElementById('itemTime').value = `${hours}:${minutes}`;
+    }
+
+    // Display karne ke liye date ka format thoda behtar banana (DD/MM/YYYY)
+    function formatDateDisplay(dateStr) {
+        if(!dateStr) return '';
+        const parts = dateStr.split('-');
+        if(parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        return dateStr;
+    }
+
+    // Display karne ke liye time ko AM/PM mein badalna
+    function formatTimeDisplay(timeStr) {
+        if(!timeStr) return '';
+        let [hours, minutes] = timeStr.split(':');
+        let h = parseInt(hours);
+        let ampm = h >= 12 ? 'PM' : 'AM';
+        h = h % 12;
+        h = h ? h : 12; // 0 baje ko 12 banana
+        return `${h}:${minutes} ${ampm}`;
+    }
 
     function saveBudget() {
         localStorage.setItem('budget', document.getElementById('totalBudget').value);
@@ -244,16 +310,22 @@
         tbody.innerHTML = '';
         
         expenses.forEach((exp, index) => {
-            // Search Filter Logic
             if(exp.name.toLowerCase().includes(searchQuery)) {
-                // Compatibility for old data without category
                 let cat = exp.category || '📦 Other'; 
+                let dateDisplay = exp.date ? formatDateDisplay(exp.date) : '';
+                let timeDisplay = exp.time ? formatTimeDisplay(exp.time) : '';
+                
+                // Agar date/time hai to usko ikatha karo
+                let dateTimeHtml = (dateDisplay || timeDisplay) 
+                    ? `<span class="date-time-text">🕒 ${dateDisplay} ${timeDisplay}</span>` 
+                    : '';
                 
                 tbody.innerHTML += `
                     <tr>
                         <td>
                             <div style="font-weight: 600; color: #2b2d42;">${exp.name}</div>
                             <span class="badge">${cat}</span>
+                            ${dateTimeHtml}
                         </td>
                         <td style="font-weight: bold;">${exp.price}</td>
                         <td>
@@ -274,9 +346,11 @@
         let name = document.getElementById('itemName').value;
         let price = document.getElementById('itemPrice').value;
         let category = document.getElementById('itemCategory').value;
+        let date = document.getElementById('itemDate').value;
+        let time = document.getElementById('itemTime').value;
 
         if (name && price) {
-            let newItem = { name: name, price: parseFloat(price), category: category };
+            let newItem = { name: name, price: parseFloat(price), category: category, date: date, time: time };
             
             if (editIndex === -1) {
                 expenses.push(newItem);
@@ -288,10 +362,11 @@
                 btn.className = 'btn-add';
             }
             
-            // Clear inputs
+            // Clear inputs aur Date/Time wapis current pe set kardo
             document.getElementById('itemName').value = '';
             document.getElementById('itemPrice').value = '';
             document.getElementById('itemCategory').selectedIndex = 0;
+            setCurrentDateTime();
             
             renderTable();
         }
@@ -300,30 +375,35 @@
     function editItem(index) {
         document.getElementById('itemName').value = expenses[index].name;
         document.getElementById('itemPrice').value = expenses[index].price;
-        // Old data fallback for category
         document.getElementById('itemCategory').value = expenses[index].category || '📦 Other';
+        
+        // Agar pehle se date/time save hai to wo daalo, warna current daal do
+        if(expenses[index].date && expenses[index].time) {
+            document.getElementById('itemDate').value = expenses[index].date;
+            document.getElementById('itemTime').value = expenses[index].time;
+        } else {
+            setCurrentDateTime();
+        }
         
         editIndex = index;
         let btn = document.getElementById('addBtn');
         btn.innerText = 'Update Expense';
         btn.className = 'btn-update';
         
-        // Scroll smoothly to top for editing
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // New Delete Feature
     function deleteItem(index) {
         if(confirm("Are you sure you want to delete this expense?")) {
             expenses.splice(index, 1);
             
-            // Agar koi item edit ho raha tha aur usay delete kar diya, to add form ko reset karo
             if(editIndex === index) {
                 editIndex = -1;
                 document.getElementById('addBtn').innerText = 'Add Expense';
                 document.getElementById('addBtn').className = 'btn-add';
                 document.getElementById('itemName').value = '';
                 document.getElementById('itemPrice').value = '';
+                setCurrentDateTime();
             }
             
             renderTable();
@@ -335,25 +415,21 @@
         let totalSpent = expenses.reduce((sum, exp) => sum + exp.price, 0);
         let remaining = budget - totalSpent;
         
-        // Dashboard Updates
         document.getElementById('dashBudgetVal').innerText = budget;
         document.getElementById('dashExpenseVal').innerText = totalSpent;
         document.getElementById('dashBalanceVal').innerText = remaining;
         
-        // Progress Bar Logic
         let percentage = 0;
         if(budget > 0) {
             percentage = (totalSpent / budget) * 100;
         }
         
-        // Cap percentage display at 100% for the text and bar width
         let displayPercent = percentage > 100 ? 100 : percentage;
         document.getElementById('dashUsedVal').innerText = displayPercent.toFixed(1) + "%";
         
         let bar = document.getElementById('progressBar');
         bar.style.width = displayPercent + "%";
         
-        // Color Indicators (Green: 0-60, Yellow: 61-90, Red: >90)
         if(percentage <= 60) {
             bar.style.backgroundColor = 'var(--success)';
             document.getElementById('dashUsedVal').style.color = 'var(--success)';
@@ -375,7 +451,7 @@
 
     function saveAsPNG() {
         let element = document.getElementById('trackerApp');
-        html2canvas(element, { scale: 2 }).then(function(canvas) { // scale 2 for better HD quality
+        html2canvas(element, { scale: 2 }).then(function(canvas) { 
             let link = document.createElement('a');
             link.download = 'Budget_Report.png';
             link.href = canvas.toDataURL("image/png");
@@ -383,7 +459,6 @@
         });
     }
 
-    // PWA Service Worker Logic
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('sw.js')
