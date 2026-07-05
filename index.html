@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ur">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#28a745">
+    <link rel="manifest" href="manifest.json">
+    
+    <title>Budget Tracker Pro</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <style>
+        body { 
+            font-family: sans-serif; 
+            margin: 0; 
+            padding: 15px; 
+            background-color: #f4f4f9; 
+            display: flex; 
+            flex-direction: column;
+            align-items: center;
+        }
+        .container { 
+            width: 100%; 
+            max-width: 400px; 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 0 10px rgba(0,0,0,0.1); 
+            box-sizing: border-box; 
+        }
+        input { 
+            width: 100%; 
+            padding: 10px; 
+            margin: 10px 0; 
+            box-sizing: border-box; 
+            font-size: 16px; 
+        }
+        button { 
+            width: 100%; 
+            padding: 12px; 
+            margin-top: 10px;
+            color: white; 
+            border: none; 
+            border-radius: 5px;
+            cursor: pointer; 
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .btn-add { background: #28a745; }
+        .btn-reset { background: #dc3545; }
+        .btn-png { background: #007bff; }
+        
+        table { width: 100%; margin-top: 20px; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    </style>
+</head>
+<body>
+
+<div class="container" id="trackerApp">
+    <h2 style="text-align: center; margin-top: 0;">Budget Tracker</h2>
+    <label>Total Budget (Rs):</label>
+    <input type="number" id="totalBudget" oninput="saveBudget()">
+    
+    <hr>
+    <input type="text" id="itemName" placeholder="Item Name">
+    <input type="number" id="itemPrice" placeholder="Amount (Rs)">
+    <button class="btn-add" onclick="addItem()">Add Expense</button>
+
+    <table>
+        <thead><tr><th>Item</th><th>Rs</th></tr></thead>
+        <tbody id="expenseList"></tbody>
+    </table>
+
+    <h3 style="margin-bottom: 0;">Remaining Balance: <span id="balance">0</span> Rs</h3>
+</div>
+
+<div style="width: 100%; max-width: 400px; margin-top: 10px;">
+    <button class="btn-png" onclick="saveAsPNG()">Save as PNG 🖼️</button>
+    <button class="btn-reset" onclick="clearAll()">Reset Data 🗑️</button>
+</div>
+
+<script>
+    // --- APP KA DATA LOGIC ---
+    window.onload = () => {
+        document.getElementById('totalBudget').value = localStorage.getItem('budget') || '';
+        document.getElementById('expenseList').innerHTML = localStorage.getItem('expenses') || '';
+        calculate();
+    };
+
+    function saveBudget() {
+        localStorage.setItem('budget', document.getElementById('totalBudget').value);
+        calculate();
+    }
+
+    function addItem() {
+        let name = document.getElementById('itemName').value;
+        let price = document.getElementById('itemPrice').value;
+        if (name && price) {
+            let table = document.getElementById('expenseList');
+            table.innerHTML += `<tr><td>${name}</td><td>${price}</td></tr>`;
+            localStorage.setItem('expenses', table.innerHTML);
+            calculate();
+            document.getElementById('itemName').value = '';
+            document.getElementById('itemPrice').value = '';
+        }
+    }
+
+    function calculate() {
+        let budget = parseFloat(document.getElementById('totalBudget').value) || 0;
+        let rows = document.getElementById('expenseList').getElementsByTagName('td');
+        let totalSpent = 0;
+        for (let i = 1; i < rows.length; i += 2) {
+            totalSpent += parseFloat(rows[i].innerText);
+        }
+        document.getElementById('balance').innerText = budget - totalSpent;
+    }
+
+    function clearAll() {
+        if(confirm("Kya aap waqayi sara data delete karna chahte hain?")) {
+            localStorage.clear();
+            location.reload();
+        }
+    }
+
+    // --- PNG MEIN SAVE KARNE KA LOGIC ---
+    function saveAsPNG() {
+        let element = document.getElementById('trackerApp');
+        html2canvas(element).then(function(canvas) {
+            let link = document.createElement('a');
+            link.download = 'My_Budget.png';
+            link.href = canvas.toDataURL("image/png");
+            link.click();
+        });
+    }
+
+    // --- SERVICE WORKER REGISTER (INSTALL OPTION KE LIYE) ---
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js')
+            .then((registration) => {
+                console.log('Service Worker set ho gaya: ', registration.scope);
+            })
+            .catch((error) => {
+                console.log('Service Worker fail ho gaya: ', error);
+            });
+        });
+    }
+</script>
+</body>
+</html>
