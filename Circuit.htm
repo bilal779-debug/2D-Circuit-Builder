@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ur">
+<head>
+    <meta charset="UTF-8">
+    <title>Budget Tracker Pro</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #f4f4f9; }
+        .container { max-width: 400px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        input { width: 100%; padding: 10px; margin: 10px 0; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; background: #28a745; color: white; border: none; cursor: pointer; }
+        table { width: 100%; margin-top: 20px; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Budget Tracker</h2>
+    <label>Total Budget (Rs):</label>
+    <input type="number" id="totalBudget" oninput="saveBudget()">
+    
+    <hr>
+    <input type="text" id="itemName" placeholder="Item Name">
+    <input type="number" id="itemPrice" placeholder="Amount (Rs)">
+    <button onclick="addItem()">Add Expense</button>
+
+    <table>
+        <thead><tr><th>Item</th><th>Rs</th></tr></thead>
+        <tbody id="expenseList"></tbody>
+    </table>
+
+    <h3>Remaining Balance: <span id="balance">0</span> Rs</h3>
+    <button onclick="clearAll()" style="background:#dc3545; margin-top:10px;">Reset Data</button>
+</div>
+
+<script>
+    // Page load hote hi data load karein
+    window.onload = () => {
+        document.getElementById('totalBudget').value = localStorage.getItem('budget') || 0;
+        document.getElementById('expenseList').innerHTML = localStorage.getItem('expenses') || '';
+        calculate();
+    };
+
+    function saveBudget() {
+        localStorage.setItem('budget', document.getElementById('totalBudget').value);
+        calculate();
+    }
+
+    function addItem() {
+        let name = document.getElementById('itemName').value;
+        let price = document.getElementById('itemPrice').value;
+        if (name && price) {
+            let table = document.getElementById('expenseList');
+            table.innerHTML += `<tr><td>${name}</td><td>${price}</td></tr>`;
+            localStorage.setItem('expenses', table.innerHTML);
+            calculate();
+            document.getElementById('itemName').value = '';
+            document.getElementById('itemPrice').value = '';
+        }
+    }
+
+    function calculate() {
+        let budget = parseFloat(document.getElementById('totalBudget').value) || 0;
+        let rows = document.getElementById('expenseList').getElementsByTagName('td');
+        let totalSpent = 0;
+        for (let i = 1; i < rows.length; i += 2) {
+            totalSpent += parseFloat(rows[i].innerText);
+        }
+        document.getElementById('balance').innerText = budget - totalSpent;
+    }
+
+    function clearAll() {
+        localStorage.clear();
+        location.reload();
+    }
+</script>
+</body>
+</html>
