@@ -48,31 +48,66 @@
             font-weight: bold;
         }
         .btn-add { background: #28a745; }
+        .btn-update { background: #ffc107; color: #000; } /* Edit karte waqt button yellow ho jayega */
         .btn-reset { background: #dc3545; }
         .btn-png { background: #007bff; }
         
-        table { width: 100%; margin-top: 20px; border-collapse: collapse; }
+        /* Pencil button ki styling */
+        .btn-edit-icon {
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 5px;
+            color: #007bff;
+            margin: 0;
+            width: auto;
+        }
+
+        table { width: 100%; margin-top: 15px; border-collapse: collapse; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f8f9fa; }
+        
+        .summary-box {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 15px;
+        }
+        .summary-box h3 { margin: 5px 0; font-size: 16px; }
+        .text-danger { color: #dc3545; }
+        .text-success { color: #28a745; }
     </style>
 </head>
 <body>
 
 <div class="container" id="trackerApp">
-    <h2 style="text-align: center; margin-top: 0;">Budget Tracker</h2>
-    <label>Total Budget (Rs):</label>
+    <h2 style="text-align: center; margin-top: 0; color: #333;">Budget Tracker</h2>
+    
+    <label style="font-weight: bold;">Total Budget (Rs):</label>
     <input type="number" id="totalBudget" oninput="saveBudget()">
     
-    <hr>
-    <input type="text" id="itemName" placeholder="Item Name">
+    <hr style="border: 1px solid #eee; margin: 15px 0;">
+    
+    <input type="text" id="itemName" placeholder="Item Name (e.g. Khana)">
     <input type="number" id="itemPrice" placeholder="Amount (Rs)">
-    <button class="btn-add" onclick="addItem()">Add Expense</button>
+    <button class="btn-add" id="addBtn" onclick="addOrUpdateItem()">Add Expense</button>
 
     <table>
-        <thead><tr><th>Item</th><th>Rs</th></tr></thead>
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Rs</th>
+                <th style="text-align: center; width: 40px;">✏️</th>
+            </tr>
+        </thead>
         <tbody id="expenseList"></tbody>
     </table>
 
-    <h3 style="margin-bottom: 0;">Remaining Balance: <span id="balance">0</span> Rs</h3>
+    <div class="summary-box">
+        <h3 class="text-danger">Total Expense: <span id="totalExpense">0</span> Rs</h3>
+        <h3 class="text-success">Remaining Balance: <span id="balance">0</span> Rs</h3>
+    </div>
 </div>
 
 <div style="width: 100%; max-width: 400px; margin-top: 10px;">
@@ -81,11 +116,13 @@
 </div>
 
 <script>
-    // --- APP KA DATA LOGIC ---
+    // Data ko array mein save karenge taake edit karna asaan ho
+    let expenses = JSON.parse(localStorage.getItem('expensesArray')) || [];
+    let editIndex = -1; // -1 ka matlab hai koi naya item add ho raha hai
+
     window.onload = () => {
         document.getElementById('totalBudget').value = localStorage.getItem('budget') || '';
-        document.getElementById('expenseList').innerHTML = localStorage.getItem('expenses') || '';
-        calculate();
+        renderTable();
     };
 
     function saveBudget() {
@@ -93,26 +130,76 @@
         calculate();
     }
 
-    function addItem() {
+    // Table banane wala function
+    function renderTable() {
+        let tbody = document.getElementById('expenseList');
+        tbody.innerHTML = '';
+        
+        expenses.forEach((exp, index) => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>${exp.name}</td>
+                    <td>${exp.price}</td>
+                    <td style="text-align: center;">
+                        <button class="btn-edit-icon" onclick="editItem(${index})">✏️</button>
+                    </td>
+                </tr>`;
+        });
+        
+        localStorage.setItem('expensesArray', JSON.stringify(expenses));
+        calculate();
+    }
+
+    // Naya item add karne ya purana update karne ka function
+    function addOrUpdateItem() {
         let name = document.getElementById('itemName').value;
         let price = document.getElementById('itemPrice').value;
+
         if (name && price) {
-            let table = document.getElementById('expenseList');
-            table.innerHTML += `<tr><td>${name}</td><td>${price}</td></tr>`;
-            localStorage.setItem('expenses', table.innerHTML);
-            calculate();
+            if (editIndex === -1) {
+                // Naya item add karo
+                expenses.push({ name: name, price: parseFloat(price) });
+            } else {
+                // Purana item update karo
+                expenses[editIndex] = { name: name, price: parseFloat(price) };
+                
+                // Button ko wapas normal kar do
+                editIndex = -1;
+                let btn = document.getElementById('addBtn');
+                btn.innerText = 'Add Expense';
+                btn.className = 'btn-add';
+            }
+            
+            renderTable();
+            
+            // Boxes khali kar do
             document.getElementById('itemName').value = '';
             document.getElementById('itemPrice').value = '';
         }
     }
 
+    // Pencil par click karne ka function
+    function editItem(index) {
+        // Data utha kar boxes mein daalo
+        document.getElementById('itemName').value = expenses[index].name;
+        document.getElementById('itemPrice').value = expenses[index].price;
+        
+        editIndex = index;
+        
+        // Button ka design badal kar "Update" kar do
+        let btn = document.getElementById('addBtn');
+        btn.innerText = 'Update Expense';
+        btn.className = 'btn-update';
+    }
+
+    // Hisab Kitab ka function
     function calculate() {
         let budget = parseFloat(document.getElementById('totalBudget').value) || 0;
-        let rows = document.getElementById('expenseList').getElementsByTagName('td');
-        let totalSpent = 0;
-        for (let i = 1; i < rows.length; i += 2) {
-            totalSpent += parseFloat(rows[i].innerText);
-        }
+        
+        // Array mein se sab expenses ka total nikalo
+        let totalSpent = expenses.reduce((sum, exp) => sum + exp.price, 0);
+
+        document.getElementById('totalExpense').innerText = totalSpent;
         document.getElementById('balance').innerText = budget - totalSpent;
     }
 
@@ -123,7 +210,7 @@
         }
     }
 
-    // --- PNG MEIN SAVE KARNE KA LOGIC ---
+    // PNG Save Logic
     function saveAsPNG() {
         let element = document.getElementById('trackerApp');
         html2canvas(element).then(function(canvas) {
@@ -134,16 +221,11 @@
         });
     }
 
-    // --- SERVICE WORKER REGISTER (INSTALL OPTION KE LIYE) ---
+    // PWA Service Worker Logic
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('sw.js')
-            .then((registration) => {
-                console.log('Service Worker set ho gaya: ', registration.scope);
-            })
-            .catch((error) => {
-                console.log('Service Worker fail ho gaya: ', error);
-            });
+            .catch((error) => console.log('Service Worker error:', error));
         });
     }
 </script>
