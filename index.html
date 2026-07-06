@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#4361ee">
+    <link rel="manifest" href="manifest.json">
+    
+    <title>Construction Budget Tracker</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <style>
+        /* --- Modern UI/UX Variables --- */
+        :root {
+            --primary: #4361ee;
+            --primary-hover: #3a53d0;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --info: #3b82f6;
+            --dark: #1e293b;
+            --text-muted: #64748b;
+            --bg-body: linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%);
+            --bg-card: #ffffff;
+            --border-color: #e2e8f0;
+            --input-bg: #f8fafc;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
+            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+            --shadow-lg: 0 15px 35px rgba(0,0,0,0.08);
+            --radius-md: 10px;
+            --radius-lg: 16px;
+        }
+
+        body { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            margin: 0; 
+            padding: 20px 15px; 
+            background: var(--bg-body); 
+            min-height: 100vh;
+            display: flex; 
+            flex-direction: column;
+            align-items: center;
+            color: var(--dark);
+        }
+
+        /* --- Main App Container --- */
+        .container { 
+            width: 100%; 
+            max-width: 450px; 
+            background: var(--bg-card); 
+            padding: 25px 20px; 
+            border-radius: var(--radius-lg); 
+            box-shadow: var(--shadow-lg); 
+            box-sizing: border-box; 
+        }
+
+        /* --- Headers & Typography --- */
+        .app-header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        .app-header h2 { 
+            margin: 0; 
+            font-weight: 800; 
+            font-size: 24px;
+            background: linear-gradient(90deg, var(--primary), #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .app-header p {
+            margin: 5px 0 0 0;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        /* --- Modern Dashboard Grid --- */
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin: 20px 0;
+        }
+        .dash-card {
+            background: var(--input-bg);
+            padding: 16px;
+            border-radius: var(--radius-md);
+            text-align: center;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .dash-card:hover { 
+            transform: translateY(-3px); 
+            box-shadow: var(--shadow-md);
+        }
+        .dash-card h4 { 
+            margin: 0; 
+            font-size: 11px; 
+            color: var(--text-muted); 
+            text-transform: uppercase; 
+            letter-spacing: 0.5px; 
+            font-weight: 600;
+        }
+        .dash-card span { 
+            display: block; 
+            margin-top: 8px; 
+            font-size: 18px; 
+            font-weight: 700; 
+            color: var(--dark); 
+        }
+
+        #dashUsedVal { color: var(--primary); }
+        #dashBalanceVal { color: var(--success); }
+        #dashExpenseVal { color: var(--danger); }
+        #dashTodayVal { color: var(--warning); }
+        #dashYesterdayVal { color: var(--info); }
+
+        /* --- Animated Progress Bar --- */
+        .progress-container {
+            width: 100%;
+            height: 10px;
+            background: var(--border-color);
+            border-radius: 20px;
+            margin-bottom: 20px;
+            overflow: hidden;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+        }
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            border-radius: 20px;
+            transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.4s ease;
+            background-color: var(--success);
+        }
+
+        /* --- Payment Targets Section --- */
+        .targets-wrapper { margin: 25px 0; width: 100%; }
+        .targets-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .targets-header h3 { margin: 0; color: var(--dark); font-size: 18px; font-weight: 700; }
+        
+        .target-creation-card {
+            background: var(--input-bg);
+            padding: 15px;
+            border-radius: var(--radius-md);
+            border: 1px dashed #94a3b8;
+            margin-bottom: 15px;
+            transition: 0.3s;
+        }
+        .target-creation-card:focus-within { border-color: var(--primary); }
+        
+        .targets-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+        
+        .target-card {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            color: white;
+            padding: 16px;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md);
+            position: relative;
+            transition: transform 0.3s ease;
+        }
+        .target-card:hover { transform: translateY(-2px); }
+        .target-card h4 { margin: 0 0 6px 0; font-size: 16px; font-weight: 700; color: #f8fafc; padding-right: 30px;}
+        
+        .btn-delete-target {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: rgba(239, 68, 68, 0.15);
+            color: #fca5a5;
+            border: none;
+            border-radius: 8px;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-delete-target:hover { background: var(--danger); color: white; }
+
+        .target-stats {
+            display: flex;
+            justify-content: space-between;
+            background: rgba(0,0,0,0.2);
+            padding: 12px;
+            border-radius: var(--radius-md);
+            margin-top: 15px;
+        }
+        .c-stat { text-align: center; flex: 1; }
+        .c-stat small { display: block; font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
+        .c-stat span { display: block; font-size: 15px; font-weight: 700; margin-top: 4px; }
+        .c-stat-allocated span { color: #f8fafc; }
+        .c-stat-paid span { color: #f87171; }
+        .c-stat-remaining span { color: #4ade80; }
+
+        /* --- Forms & Inputs --- */
+        label { font-weight: 600; font-size: 13px; color: var(--dark); display: block; margin-bottom: 6px; }
+        .form-group { margin-bottom: 15px; }
+        input, select { 
+            width: 100%; padding: 14px; box-sizing: border-box; font-size: 15px; 
+            border: 2px solid var(--border-color); border-radius: var(--radius-md);
+            background: var(--input-bg); color: var(--dark); transition: all 0.3s ease; font-family: inherit;
+        }
+        input:focus, select:focus { 
+            border-color: var(--primary); outline: none; background: white;
+            box-shadow: 0 0 0 4px rgba(67, 97, 238, 0.15);
+        }
+        
+        .input-row { display: flex; gap: 12px; }
+        .input-row > div { flex: 1; }
+
+        /* --- Buttons --- */
+        button { 
+            width: 100%; padding: 15px; color: white; border: none; border-radius: var(--radius-md);
+            cursor: pointer; font-size: 16px; font-weight: 600; letter-spacing: 0.3px;
+            transition: all 0.2s ease; box-shadow: var(--shadow-md); display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        button:active { transform: scale(0.97); }
+        
+        .btn-add { background: var(--primary); }
+        .btn-add:hover { background: var(--primary-hover); }
+        .btn-update { background: var(--warning); color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+        .btn-target { background: var(--dark); padding: 12px; font-size: 14px; }
+        .btn-target:hover { background: #334155; }
+        
+        .btn-png { background: var(--dark); margin-top: 15px; }
+        .btn-reset { background: white; color: var(--danger); border: 2px solid var(--danger); box-shadow: none; margin-top: 10px; }
+        .btn-reset:hover { background: #fef2f2; }
+
+        /* --- Table Design --- */
+        .table-container { margin-top: 20px; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border-color); background: white; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 14px 12px; text-align: left; font-size: 14px; border-bottom: 1px solid var(--border-color); }
+        th { background-color: var(--input-bg); font-weight: 700; color: var(--text-muted); text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover { background-color: #f8fafc; }
+        
+        .badge { display: inline-block; padding: 4px 10px; font-size: 11px; border-radius: 20px; background: #e2e8f0; color: var(--dark); font-weight: 600; margin-top: 6px; }
+        .badge-target { background: rgba(255,255,255,0.2); color: #fff; border: none; }
+        .date-time-text { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-muted); margin-top: 6px; }
+
+        .action-btns { display: flex; gap: 8px; justify-content: flex-end; }
+        .btn-icon { background: var(--input-bg); border: 1px solid var(--border-color); box-shadow: none; font-size: 14px; cursor: pointer; padding: 8px; width: 35px; height: 35px; border-radius: 8px; color: var(--dark); display: flex; align-items: center; justify-content: center; }
+        .btn-icon:hover { background: #e2e8f0; }
+
+        hr { border: none; height: 1px; background: var(--border-color); margin: 25px 0; }
+    </style>
+</head>
+<body>
+
+<div class="container" id="trackerApp">
+    <div class="app-header">
+        <h2>Construction Budget</h2>
+        <p>Track your building material expenses</p>
+    </div>
+    
+    <div class="form-group">
+        <label>Total Budget (Rs)</label>
+        <input type="number" id="totalBudget" oninput="saveBudget()" placeholder="Enter estimated budget">
+    </div>
+    
+    <div class="dashboard">
+        <div class="dash-card">
+            <h4>Total Budget</h4>
+            <span id="dashBudgetVal">0</span>
+        </div>
+        <div class="dash-card">
+            <h4>Total Expense</h4>
+            <span id="dashExpenseVal">0</span>
+        </div>
+        <div class="dash-card">
+            <h4>Balance</h4>
+            <span id="dashBalanceVal">0</span>
+        </div>
+        <div class="dash-card">
+            <h4>Used</h4>
+            <span id="dashUsedVal">0%</span>
+        </div>
+        <div class="dash-card">
+            <h4>Today's Exp.</h4>
+            <span id="dashTodayVal">0</span>
+        </div>
+        <div class="dash-card">
+            <h4>Yesterday's Exp.</h4>
+            <span id="dashYesterdayVal">0</span>
+        </div>
+    </div>
+
+    <div class="progress-container">
+        <div class="progress-bar" id="progressBar"></div>
+    </div>
+    
+    <div class="targets-wrapper">
+        <div class="targets-header">
+            <h3>🎯 Payment Targets</h3>
+        </div>
+        
+        <div class="target-creation-card" id="targetCreationCard">
+            <div class="form-group" style="margin-bottom: 10px;">
+                <input type="text" id="targetName" placeholder="Target Name (e.g. Electrician)">
+            </div>
+            <div class="input-row" style="margin-bottom: 10px;">
+                <input type="number" id="targetAmount" placeholder="Target Amount (Rs)">
+                <select id="targetCategory">
+                    <option value="👷 Contractor Payment">👷 Contractor Payment</option>
+                    <option value="👷 Labor">👷 Labor</option>
+                    <option value="🧱 Cement">🧱 Cement</option>
+                    <option value="⛓️ Steel">⛓️ Steel</option>
+                    <option value="⚡ Electrical">⚡ Electrical</option>
+                    <option value="🪚 Carpenter">🪚 Carpenter</option>
+                    <option value="🚰 Sanitary">🚰 Sanitary</option>
+                    <option value="⏳ Sand">⏳ Sand</option>
+                    <option value="🧱 Bricks">🧱 Bricks</option>
+                    <option value="📦 Other Materials">📦 Other Materials</option>
+                </select>
+            </div>
+            <button class="btn-target" onclick="addTarget()">➕ Add Target</button>
+        </div>
+
+        <div id="targetsContainer" class="targets-grid"></div>
+    </div>
+
+    <hr>
+    
+    <div class="form-group">
+        <label>Expense Detail</label>
+        <input type="text" id="itemName" placeholder="e.g. Advance, 100 cement bags">
+    </div>
+
+    <div class="form-group">
+        <label>Amount (Rs)</label>
+        <input type="number" id="itemPrice" placeholder="0.00">
+    </div>
+    
+    <div class="form-group">
+        <label>Category</label>
+        <select id="itemCategory">
+            <option value="👷 Contractor Payment">👷 Contractor Payment</option>
+            <option value="👷 Labor">👷 Labor</option>
+            <option value="🧱 Cement">🧱 Cement</option>
+            <option value="⛓️ Steel">⛓️ Steel</option>
+            <option value="⚡ Electrical">⚡ Electrical</option>
+            <option value="🪚 Carpenter">🪚 Carpenter</option>
+            <option value="🚰 Sanitary">🚰 Sanitary</option>
+            <option value="⏳ Sand">⏳ Sand</option>
+            <option value="🧱 Bricks">🧱 Bricks</option>
+            <option value="📦 Other Materials">📦 Other Materials</option>
+        </select>
+    </div>
+
+    <div class="input-row form-group">
+        <div>
+            <label>Date</label>
+            <input type="date" id="itemDate">
+        </div>
+        <div>
+            <label>Time</label>
+            <input type="time" id="itemTime">
+        </div>
+    </div>
+
+    <button class="btn-add" id="addBtn" onclick="addOrUpdateItem()">
+        ➕ Add Expense
+    </button>
+
+    <hr>
+
+    <div class="form-group" style="margin-bottom: 0;">
+        <input type="text" id="searchBar" placeholder="🔍 Search expenses..." oninput="renderTable()">
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Details</th>
+                    <th>Rs</th>
+                    <th style="text-align: right;">Action</th>
+                </tr>
+            </thead>
+            <tbody id="expenseList"></tbody>
+        </table>
+    </div>
+</div>
+
+<div style="width: 100%; max-width: 450px;">
+    <button class="btn-png" onclick="saveAsPNG()">📸 Download Report</button>
+    <button class="btn-reset" onclick="clearAll()">🗑️ Reset All Data</button>
+</div>
+
+<script>
+    // Data Storage Arrays
+    let expenses = JSON.parse(localStorage.getItem('expensesArray')) || [];
+    let targets = JSON.parse(localStorage.getItem('targetsArray')) || [];
+    let editIndex = -1; 
+
+    // App Initialization
+    window.onload = () => {
+        document.getElementById('totalBudget').value = localStorage.getItem('budget') || '';
+        
+        // Auto-migrate previous single contractor data into the new Target system so data is never lost
+        let oldContractorName = localStorage.getItem('contractorName');
+        if (oldContractorName && targets.length === 0) {
+            targets.push({
+                name: oldContractorName,
+                amount: parseFloat(localStorage.getItem('contractorAllocated')) || 0,
+                category: '👷 Contractor Payment'
+            });
+            localStorage.removeItem('contractorName');
+            localStorage.removeItem('contractorAllocated');
+            localStorage.setItem('targetsArray', JSON.stringify(targets));
+        }
+
+        setCurrentDateTime();
+        renderTable(); 
+    };
+
+    // Auto set current date and time
+    function setCurrentDateTime() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        document.getElementById('itemDate').value = `${year}-${month}-${day}`;
+        
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        document.getElementById('itemTime').value = `${hours}:${minutes}`;
+    }
+
+    // Formatting Functions
+    function formatDateDisplay(dateStr) {
+        if(!dateStr) return '';
+        const parts = dateStr.split('-');
+        if(parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        return dateStr;
+    }
+
+    function formatTimeDisplay(timeStr) {
+        if(!timeStr) return '';
+        let [hours, minutes] = timeStr.split(':');
+        let h = parseInt(hours);
+        let ampm = h >= 12 ? 'PM' : 'AM';
+        h = h % 12;
+        h = h ? h : 12; 
+        return `${h}:${minutes} ${ampm}`;
+    }
+
+    function getTargetDateString(offsetDays) {
+        let d = new Date();
+        d.setDate(d.getDate() - offsetDays);
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    // Save Budget
+    function saveBudget() {
+        localStorage.setItem('budget', document.getElementById('totalBudget').value);
+        calculate();
+    }
+
+    // --- NEW: Target System Logic ---
+    function addTarget() {
+        let name = document.getElementById('targetName').value;
+        let amount = document.getElementById('targetAmount').value;
+        let category = document.getElementById('targetCategory').value;
+
+        if (name && amount) {
+            targets.push({ 
+                name: name, 
+                amount: parseFloat(amount), 
+                category: category 
+            });
+            localStorage.setItem('targetsArray', JSON.stringify(targets));
+            
+            // Clear inputs
+            document.getElementById('targetName').value = '';
+            document.getElementById('targetAmount').value = '';
+            
+            calculate(); // Recalculates everything and re-renders target cards
+        }
+    }
+
+    function deleteTarget(index) {
+        if(confirm("Are you sure you want to delete this payment target?")) {
+            targets.splice(index, 1);
+            localStorage.setItem('targetsArray', JSON.stringify(targets));
+            calculate();
+        }
+    }
+
+    function renderTargets() {
+        let container = document.getElementById('targetsContainer');
+        container.innerHTML = '';
+        
+        targets.forEach((target, index) => {
+            // Calculate Paid specifically for this target's linked category
+            let paid = expenses
+                .filter(exp => exp.category === target.category)
+                .reduce((sum, exp) => sum + exp.price, 0);
+            
+            let remaining = target.amount - paid;
+
+            container.innerHTML += `
+                <div class="target-card">
+                    <button class="btn-delete-target" onclick="deleteTarget(${index})" title="Delete Target">🗑️</button>
+                    <h4>${target.name}</h4>
+                    <span class="badge badge-target">${target.category}</span>
+                    <div class="target-stats">
+                        <div class="c-stat c-stat-allocated">
+                            <small>Target</small>
+                            <span>${target.amount}</span>
+                        </div>
+                        <div class="c-stat c-stat-paid">
+                            <small>Paid</small>
+                            <span>${paid}</span>
+                        </div>
+                        <div class="c-stat c-stat-remaining">
+                            <small>Remaining</small>
+                            <span>${remaining}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    // Render Expense Table Data
+    function renderTable() {
+        let tbody = document.getElementById('expenseList');
+        let searchQuery = document.getElementById('searchBar').value.toLowerCase();
+        tbody.innerHTML = '';
+        
+        expenses.forEach((exp, index) => {
+            if(exp.name.toLowerCase().includes(searchQuery)) {
+                let cat = exp.category || '📦 Other Materials'; 
+                let dateDisplay = exp.date ? formatDateDisplay(exp.date) : '';
+                let timeDisplay = exp.time ? formatTimeDisplay(exp.time) : '';
+                
+                let dateTimeHtml = (dateDisplay || timeDisplay) 
+                    ? `<span class="date-time-text">🕒 ${dateDisplay} • ${timeDisplay}</span>` 
+                    : '';
+                
+                tbody.innerHTML += `
+                    <tr>
+                        <td>
+                            <div style="font-weight: 600; color: var(--dark); font-size: 15px;">${exp.name}</div>
+                            <span class="badge">${cat}</span>
+                            ${dateTimeHtml}
+                        </td>
+                        <td style="font-weight: 700; color: var(--dark); font-size: 15px;">${exp.price}</td>
+                        <td>
+                            <div class="action-btns">
+                                <button class="btn-icon" onclick="editItem(${index})" title="Edit">✏️</button>
+                                <button class="btn-icon" onclick="deleteItem(${index})" title="Delete" style="color: var(--danger);">🗑️</button>
+                            </div>
+                        </td>
+                    </tr>`;
+            }
+        });
+        
+        localStorage.setItem('expensesArray', JSON.stringify(expenses));
+        calculate(); // Ensures everything stays perfectly synced
+    }
+
+    // Add or Update Expense logic
+    function addOrUpdateItem() {
+        let name = document.getElementById('itemName').value;
+        let price = document.getElementById('itemPrice').value;
+        let category = document.getElementById('itemCategory').value;
+        let date = document.getElementById('itemDate').value;
+        let time = document.getElementById('itemTime').value;
+
+        if (name && price) {
+            let newItem = { name: name, price: parseFloat(price), category: category, date: date, time: time };
+            
+            if (editIndex === -1) {
+                expenses.push(newItem);
+            } else {
+                expenses[editIndex] = newItem;
+                editIndex = -1;
+                let btn = document.getElementById('addBtn');
+                btn.innerHTML = '➕ Add Expense';
+                btn.className = 'btn-add';
+            }
+            
+            document.getElementById('itemName').value = '';
+            document.getElementById('itemPrice').value = '';
+            setCurrentDateTime();
+            
+            renderTable();
+        }
+    }
+
+    // Edit Item
+    function editItem(index) {
+        document.getElementById('itemName').value = expenses[index].name;
+        document.getElementById('itemPrice').value = expenses[index].price;
+        document.getElementById('itemCategory').value = expenses[index].category || '📦 Other Materials';
+        
+        if(expenses[index].date && expenses[index].time) {
+            document.getElementById('itemDate').value = expenses[index].date;
+            document.getElementById('itemTime').value = expenses[index].time;
+        } else {
+            setCurrentDateTime();
+        }
+        
+        editIndex = index;
+        let btn = document.getElementById('addBtn');
+        btn.innerHTML = '💾 Update Expense';
+        btn.className = 'btn-update';
+        
+        // Scroll into view
+        document.getElementById('itemName').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    // Delete Item
+    function deleteItem(index) {
+        if(confirm("Are you sure you want to delete this expense?")) {
+            expenses.splice(index, 1);
+            
+            if(editIndex === index) {
+                editIndex = -1;
+                let btn = document.getElementById('addBtn');
+                btn.innerHTML = '➕ Add Expense';
+                btn.className = 'btn-add';
+                document.getElementById('itemName').value = '';
+                document.getElementById('itemPrice').value = '';
+                setCurrentDateTime();
+            }
+            
+            renderTable();
+        }
+    }
+
+    // Main App Calculation Logic (Dashboard & Targets)
+    function calculate() {
+        let budget = parseFloat(document.getElementById('totalBudget').value) || 0;
+        
+        let totalSpent = 0;
+        let todaySpent = 0;
+        let yesterdaySpent = 0;
+        
+        let todayStr = getTargetDateString(0);
+        let yesterdayStr = getTargetDateString(1);
+
+        expenses.forEach(exp => {
+            totalSpent += exp.price;
+            if(exp.date === todayStr) todaySpent += exp.price;
+            if(exp.date === yesterdayStr) yesterdaySpent += exp.price;
+        });
+
+        let remaining = budget - totalSpent;
+        
+        // Update DOM Dashboard Cards
+        document.getElementById('dashBudgetVal').innerText = budget;
+        document.getElementById('dashExpenseVal').innerText = totalSpent;
+        document.getElementById('dashBalanceVal').innerText = remaining;
+        document.getElementById('dashTodayVal').innerText = todaySpent;
+        document.getElementById('dashYesterdayVal').innerText = yesterdaySpent;
+
+        // Progress Bar Update
+        let percentage = 0;
+        if(budget > 0) {
+            percentage = (totalSpent / budget) * 100;
+        }
+        
+        let displayPercent = percentage > 100 ? 100 : percentage;
+        document.getElementById('dashUsedVal').innerText = displayPercent.toFixed(1) + "%";
+        
+        let bar = document.getElementById('progressBar');
+        bar.style.width = displayPercent + "%";
+        
+        if(percentage <= 60) {
+            bar.style.backgroundColor = 'var(--success)';
+            document.getElementById('dashUsedVal').style.color = 'var(--success)';
+        } else if(percentage <= 90) {
+            bar.style.backgroundColor = 'var(--warning)';
+            document.getElementById('dashUsedVal').style.color = 'var(--warning)';
+        } else {
+            bar.style.backgroundColor = 'var(--danger)';
+            document.getElementById('dashUsedVal').style.color = 'var(--danger)';
+        }
+
+        // IMPORTANT: Render target cards every time expenses update
+        renderTargets();
+    }
+
+    // Clear All Data
+    function clearAll() {
+        if(confirm("Warning: This will delete ALL your budgets, targets, and expenses. Are you sure?")) {
+            localStorage.clear();
+            location.reload();
+        }
+    }
+
+    // PNG Export Logic
+    function saveAsPNG() {
+        let element = document.getElementById('trackerApp');
+        element.style.boxShadow = "none";
+        html2canvas(element, { scale: 2, backgroundColor: "#ffffff" }).then(function(canvas) { 
+            element.style.boxShadow = "var(--shadow-lg)";
+            let link = document.createElement('a');
+            link.download = 'Construction_Budget_Report.png';
+            link.href = canvas.toDataURL("image/png");
+            link.click();
+        });
+    }
+
+    // PWA Service Worker Registration
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js')
+            .catch((error) => console.log('Service Worker error:', error));
+        });
+    }
+</script>
+</body>
+</html>
