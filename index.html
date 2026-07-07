@@ -8,7 +8,10 @@
     
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 
     <style>
         /* --- Material Design 3 Variables --- */
@@ -170,7 +173,6 @@
         }
         input:focus { outline: none; border-color: var(--primary); background: var(--surface); box-shadow: 0 0 0 3px var(--primary-container); }
         
-        /* Custom Select Input Look */
         .custom-select-box {
             width: 100%; padding: 14px; background: var(--background);
             border: 1px solid var(--outline); border-radius: var(--radius-md);
@@ -188,6 +190,7 @@
         button.btn-primary:active { transform: scale(0.98); }
         button.btn-outline { background: transparent; border: 2px solid var(--outline); color: var(--on-surface); }
         button.btn-danger { background: var(--danger-container); color: var(--danger); box-shadow: none; }
+        button.btn-pdf { background: #0f172a; } /* Dark color for PDF button */
         button.btn-small { padding: 8px 16px; border-radius: 8px; font-size: 14px; }
 
         /* --- Lists (History) --- */
@@ -218,7 +221,7 @@
         .cat-sum-name { font-size: 14px; font-weight: 600; }
         .cat-sum-val { font-size: 15px; font-weight: 800; color: var(--primary); }
 
-        /* --- CUSTOM MODALS (Overrides Native Alerts & Selects) --- */
+        /* --- CUSTOM MODALS --- */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.5); z-index: 100;
@@ -236,13 +239,11 @@
         }
         .modal-overlay.show .modal-content { transform: translateY(0); }
         
-        /* Confirm Dialog Specific */
         .confirm-actions { display: flex; gap: 12px; margin-top: 24px; justify-content: flex-end; }
         .confirm-actions button { width: auto; padding: 10px 20px; border-radius: 8px; font-weight: 600; border: none; cursor: pointer; }
         .btn-cancel { background: var(--outline); color: var(--on-surface); }
         .btn-confirm { background: var(--danger); color: white; }
 
-        /* Category Modal Specific */
         .cat-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
         .cat-modal-header h3 { margin: 0; font-size: 18px; }
         .close-btn { background: none; border: none; font-size: 24px; color: var(--text-muted); cursor: pointer; }
@@ -293,6 +294,12 @@
                 <div class="progress-track">
                     <div class="progress-fill" id="progressBar"></div>
                 </div>
+            </div>
+            
+            <div class="card" style="text-align: center; padding: 24px;">
+                <span class="material-symbols-outlined" style="font-size: 40px; color: var(--primary); margin-bottom: 8px;">analytics</span>
+                <h3 style="margin: 0 0 4px 0;">Track Like a Pro</h3>
+                <p style="margin: 0; font-size: 13px; color: var(--text-muted);">Navigate through tabs to manage expenses, targets, and reports.</p>
             </div>
         </div>
 
@@ -409,11 +416,17 @@
             <div class="card">
                 <div class="section-title">
                     <span class="material-symbols-outlined">manage_accounts</span>
-                    Data Management
+                    Data Management & Reports
                 </div>
-                <button class="btn-primary btn-outline" style="margin-bottom: 12px;" onclick="saveAsPNG()">
-                    <span class="material-symbols-outlined">download</span> Download Report
+                
+                <button class="btn-primary btn-pdf" style="margin-bottom: 12px;" onclick="generatePDFReport()">
+                    <span class="material-symbols-outlined">picture_as_pdf</span> Download Report (PDF)
                 </button>
+                
+                <button class="btn-primary btn-outline" style="margin-bottom: 30px;" onclick="saveAsPNG()">
+                    <span class="material-symbols-outlined">image</span> Dashboard Snapshot (PNG)
+                </button>
+                
                 <button class="btn-primary btn-danger" onclick="confirmResetData()">
                     <span class="material-symbols-outlined">delete_forever</span> Reset All Data
                 </button>
@@ -469,8 +482,7 @@
             
             <input type="text" id="catSearchInput" placeholder="Search category..." oninput="renderCategoryList()">
             
-            <div class="cat-list" id="categoryListContainer">
-                </div>
+            <div class="cat-list" id="categoryListContainer"></div>
 
             <div style="border-top: 1px solid var(--outline); padding-top: 12px;">
                 <label style="font-size: 11px;">Not in list? Add Custom Category</label>
@@ -489,16 +501,15 @@
     let targets = JSON.parse(localStorage.getItem('targetsArray')) || [];
     let editIndex = -1; 
 
-    // General + Construction Categories
     const DEFAULT_CATEGORIES = [
         "Food", "Transport", "Bills", "Shopping", "Health", "Education", 
         "Rent", "Salary", "Labor", "Contractor Payment", "Cement", "Steel", 
         "Bricks", "Sand", "Crush", "Electrical", "Plumbing", "Sanitary", 
-        "Paint", "Hardware", "Miscellaneous"
+        "Paint", "Hardware", "Miscellaneous", "Wiring", "Carpenter", "Tiles", "Marble", "Doors", "Windows", "Ceiling", "Transportation", "Machinery", "Tools", "Water", "Other Materials"
     ];
     
     let userCategories = JSON.parse(localStorage.getItem('userCategoriesArray')) || DEFAULT_CATEGORIES;
-    let activeCategoryField = ''; // 'expense' or 'target'
+    let activeCategoryField = ''; 
     let currentConfirmCallback = null;
 
     // --- Initialization ---
@@ -525,7 +536,7 @@
 
     // --- Custom Category Modal Logic ---
     function openCategoryModal(fieldType) {
-        activeCategoryField = fieldType; // knows which input to update
+        activeCategoryField = fieldType; 
         document.getElementById('catSearchInput').value = '';
         renderCategoryList();
         document.getElementById('categoryModal').classList.add('show');
@@ -541,11 +552,9 @@
         container.innerHTML = '';
 
         let filtered = userCategories.filter(cat => cat.toLowerCase().includes(searchTerm));
-        
         if(filtered.length === 0) {
             container.innerHTML = '<p style="text-align:center; color:#94a3b8; font-size: 13px; margin-top:20px;">No categories found.</p>';
         }
-
         filtered.forEach(cat => {
             container.innerHTML += `<div class="cat-list-item" onclick="selectCategory('${cat}')">${cat}</div>`;
         });
@@ -567,14 +576,13 @@
     function addNewCategory() {
         const newCat = document.getElementById('newCategoryInput').value.trim();
         if(newCat) {
-            // Check if exists
             let exists = userCategories.find(c => c.toLowerCase() === newCat.toLowerCase());
             if(!exists) {
                 userCategories.push(newCat);
                 localStorage.setItem('userCategoriesArray', JSON.stringify(userCategories));
             }
             document.getElementById('newCategoryInput').value = '';
-            selectCategory(newCat); // Auto select the new one
+            selectCategory(newCat); 
         }
     }
 
@@ -658,17 +666,10 @@
     function addTarget() {
         let category = document.getElementById('targetCategoryVal').value;
         let amount = document.getElementById('targetAmount').value;
-        // Fallback: If name is empty, use category name
         let name = document.getElementById('targetName').value.trim() || category;
 
-        if (!category) {
-            alert("Please select a category first!");
-            return;
-        }
-        if (!amount) {
-            alert("Please enter target amount!");
-            return;
-        }
+        if (!category) { alert("Please select a category first!"); return; }
+        if (!amount) { alert("Please enter target amount!"); return; }
 
         targets.push({ name: name, amount: parseFloat(amount), category: category });
         localStorage.setItem('targetsArray', JSON.stringify(targets));
@@ -735,16 +736,11 @@
     function renderCategorySummary() {
         let container = document.getElementById('categorySummaryContainer');
         container.innerHTML = '';
-
         let categoryTotals = {};
         
         expenses.forEach(exp => {
             let cat = exp.category;
-            if (categoryTotals[cat] !== undefined) {
-                categoryTotals[cat] += exp.price;
-            } else {
-                categoryTotals[cat] = exp.price; 
-            }
+            categoryTotals[cat] = (categoryTotals[cat] || 0) + exp.price;
         });
 
         const keys = Object.keys(categoryTotals);
@@ -753,7 +749,6 @@
             return;
         }
 
-        // Sort by highest expense
         keys.sort((a,b) => categoryTotals[b] - categoryTotals[a]).forEach(cat => {
             container.innerHTML += `
                 <div class="cat-sum-item">
@@ -770,17 +765,10 @@
         let price = document.getElementById('itemPrice').value;
         let date = document.getElementById('itemDate').value;
         let time = document.getElementById('itemTime').value;
-        // Fallback: If name empty, use category name
         let name = document.getElementById('itemName').value.trim() || category;
 
-        if (!category) {
-            alert("Category is mandatory! Please select one.");
-            return;
-        }
-        if (!price) {
-            alert("Please enter the amount.");
-            return;
-        }
+        if (!category) { alert("Category is mandatory! Please select one."); return; }
+        if (!price) { alert("Please enter the amount."); return; }
 
         let newItem = { name: name, price: parseFloat(price), category: category, date: date, time: time };
         
@@ -820,7 +808,6 @@
         document.getElementById('itemName').value = expenses[index].name;
         document.getElementById('itemPrice').value = expenses[index].price;
         
-        // Handle Category Display
         let cat = expenses[index].category;
         document.getElementById('itemCategoryVal').value = cat;
         document.getElementById('expenseCategoryText').innerText = cat;
@@ -939,7 +926,7 @@
         renderTargets();
     }
 
-    // --- Utilities ---
+    // --- Utilities (PNG & PDF Export) ---
     function confirmResetData() {
         showConfirmModal("Warning: This will delete ALL your budgets, targets, and expenses. Are you sure?", () => {
             localStorage.clear();
@@ -953,11 +940,194 @@
             let element = document.getElementById('screen-dashboard');
             html2canvas(element, { scale: 2, backgroundColor: "#f8fafc" }).then(function(canvas) { 
                 let link = document.createElement('a');
-                link.download = 'Budget_Report.png';
+                link.download = 'Budget_Dashboard_Report.png';
                 link.href = canvas.toDataURL("image/png");
                 link.click();
             });
         }, 500); 
+    }
+
+    function generatePDFReport() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        let yPos = 20;
+        
+        // 1. Cover/Header
+        doc.setFontSize(22);
+        doc.setTextColor(67, 97, 238);
+        doc.text("Budget Tracker Pro - Complete Report", 14, yPos);
+        yPos += 8;
+        
+        doc.setFontSize(10);
+        doc.setTextColor(100, 116, 139);
+        const now = new Date();
+        doc.text(`Generated on: ${now.toLocaleDateString()} at ${now.toLocaleTimeString()}`, 14, yPos);
+        yPos += 15;
+        
+        // Data Prep
+        let budget = parseFloat(document.getElementById('totalBudget').value) || 0;
+        let totalSpent = 0; let todaySpent = 0; let yesterdaySpent = 0;
+        let todayStr = getTargetDateString(0); let yesterdayStr = getTargetDateString(1);
+        let categoryTotals = {};
+
+        expenses.forEach(exp => {
+            totalSpent += exp.price;
+            if(exp.date === todayStr) todaySpent += exp.price;
+            if(exp.date === yesterdayStr) yesterdaySpent += exp.price;
+            let cat = exp.category || 'Other';
+            categoryTotals[cat] = (categoryTotals[cat] || 0) + exp.price;
+        });
+
+        let remaining = budget - totalSpent;
+        let percentage = budget > 0 ? ((totalSpent / budget) * 100).toFixed(1) : "0.0";
+        
+        // 2. Budget Summary
+        doc.setFontSize(14);
+        doc.setTextColor(30, 41, 59);
+        doc.text("1. Budget Summary", 14, yPos);
+        yPos += 6;
+        
+        doc.autoTable({
+            startY: yPos,
+            head: [['Metric', 'Amount']],
+            body: [
+                ['Total Budget', `Rs ${formatCurrency(budget)}`],
+                ['Total Expense', `Rs ${formatCurrency(totalSpent)}`],
+                ['Remaining Balance', `Rs ${formatCurrency(remaining)}`],
+                ['Budget Used', `${percentage}%`],
+                ['Today\'s Expense', `Rs ${formatCurrency(todaySpent)}`],
+                ['Yesterday\'s Expense', `Rs ${formatCurrency(yesterdaySpent)}`]
+            ],
+            theme: 'grid',
+            headStyles: { fillColor: [67, 97, 238] }
+        });
+        yPos = doc.lastAutoTable.finalY + 15;
+        
+        // 3. Payment Targets Summary
+        doc.setFontSize(14);
+        doc.text("2. Payment Targets Summary", 14, yPos);
+        yPos += 6;
+        
+        let targetBody = targets.map(t => {
+            let paid = expenses.filter(exp => exp.category === t.category).reduce((sum, exp) => sum + exp.price, 0);
+            return [t.name, t.category, `Rs ${formatCurrency(t.amount)}`, `Rs ${formatCurrency(paid)}`, `Rs ${formatCurrency(t.amount - paid)}`];
+        });
+        if(targetBody.length === 0) targetBody = [['No targets created', '', '', '', '']];
+        
+        doc.autoTable({
+            startY: yPos,
+            head: [['Target Name', 'Category', 'Target Amount', 'Paid', 'Remaining']],
+            body: targetBody,
+            theme: 'grid',
+            headStyles: { fillColor: [67, 97, 238] }
+        });
+        yPos = doc.lastAutoTable.finalY + 15;
+        
+        // Check Page break
+        if(yPos > 240) { doc.addPage(); yPos = 20; }
+        
+        // 4. Category Expense Summary
+        doc.setFontSize(14);
+        doc.text("3. Category Expense Summary", 14, yPos);
+        yPos += 6;
+        
+        let catBody = Object.keys(categoryTotals).sort((a,b) => categoryTotals[b] - categoryTotals[a]).map(cat => {
+            return [cat, `Rs ${formatCurrency(categoryTotals[cat])}`];
+        });
+        if(catBody.length === 0) catBody = [['No categories used', '']];
+        
+        doc.autoTable({
+            startY: yPos,
+            head: [['Category Name', 'Total Expense']],
+            body: catBody,
+            theme: 'grid',
+            headStyles: { fillColor: [67, 97, 238] }
+        });
+        yPos = doc.lastAutoTable.finalY + 15;
+        
+        // 5. Statistics
+        if(yPos > 240) { doc.addPage(); yPos = 20; }
+        doc.setFontSize(14);
+        doc.text("4. Expense Statistics", 14, yPos);
+        yPos += 6;
+        
+        let expCount = expenses.length;
+        let highest = expCount > 0 ? Math.max(...expenses.map(e => e.price)) : 0;
+        let lowest = expCount > 0 ? Math.min(...expenses.map(e => e.price)) : 0;
+        let avg = expCount > 0 ? (totalSpent / expCount).toFixed(2) : 0;
+        let uniqueCats = Object.keys(categoryTotals).length;
+        
+        doc.autoTable({
+            startY: yPos,
+            head: [['Statistic', 'Value']],
+            body: [
+                ['Total Number of Expenses', expCount],
+                ['Highest Expense', `Rs ${formatCurrency(highest)}`],
+                ['Lowest Expense', `Rs ${formatCurrency(lowest)}`],
+                ['Average Expense', `Rs ${formatCurrency(avg)}`],
+                ['Total Categories Used', uniqueCats]
+            ],
+            theme: 'grid',
+            headStyles: { fillColor: [67, 97, 238] }
+        });
+        yPos = doc.lastAutoTable.finalY + 15;
+        
+        // 6. Complete Expense History
+        if(yPos > 240) { doc.addPage(); yPos = 20; }
+        doc.setFontSize(14);
+        doc.text("5. Complete Expense History", 14, yPos);
+        yPos += 6;
+        
+        let historyBody = expenses.map((exp, i) => {
+            return [
+                i + 1,
+                exp.name,
+                exp.category,
+                `Rs ${formatCurrency(exp.price)}`,
+                exp.date ? formatDateDisplay(exp.date) : '-',
+                exp.time ? formatTimeDisplay(exp.time) : '-'
+            ];
+        });
+        if(historyBody.length === 0) historyBody = [['No expenses recorded', '', '', '', '', '']];
+        
+        doc.autoTable({
+            startY: yPos,
+            head: [['S.No', 'Name', 'Category', 'Amount', 'Date', 'Time']],
+            body: historyBody,
+            theme: 'striped',
+            headStyles: { fillColor: [67, 97, 238] },
+            didDrawPage: function (data) {
+                // Footer pagination
+                let str = "Page " + doc.internal.getNumberOfPages();
+                doc.setFontSize(10);
+                doc.setTextColor(150, 150, 150);
+                let pageSize = doc.internal.pageSize;
+                let pageHeight = pageSize.height ? pageSize.height : pageSize.getHeight();
+                doc.text(str, data.settings.margin.left, pageHeight - 10);
+            }
+        });
+        yPos = doc.lastAutoTable.finalY + 15;
+        
+        // 7. Final Summary
+        if(yPos > 240) { doc.addPage(); yPos = 20; }
+        doc.setFontSize(14);
+        doc.setTextColor(30, 41, 59);
+        doc.text("6. Final Summary", 14, yPos);
+        yPos += 6;
+        
+        doc.autoTable({
+            startY: yPos,
+            body: [
+                ['Total Budget Allocated', `Rs ${formatCurrency(budget)}`],
+                ['Total Amount Spent', `Rs ${formatCurrency(totalSpent)}`],
+                ['Final Remaining Balance', `Rs ${formatCurrency(remaining)}`]
+            ],
+            theme: 'grid',
+            styles: { fontStyle: 'bold', fontSize: 12 },
+            bodyStyles: { fillColor: [248, 250, 252] }
+        });
+        
+        doc.save('Budget_Tracker_Complete_Report.pdf');
     }
 
     if ('serviceWorker' in navigator) {
