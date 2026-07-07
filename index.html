@@ -190,7 +190,8 @@
         button.btn-primary:active { transform: scale(0.98); }
         button.btn-outline { background: transparent; border: 2px solid var(--outline); color: var(--on-surface); }
         button.btn-danger { background: var(--danger-container); color: var(--danger); box-shadow: none; }
-        button.btn-pdf { background: #0f172a; } /* Dark color for PDF button */
+        button.btn-pdf { background: #0f172a; } 
+        button.btn-install { background: #10b981; } /* Install App button style */
         button.btn-small { padding: 8px 16px; border-radius: 8px; font-size: 14px; }
 
         /* --- Lists (History) --- */
@@ -416,9 +417,13 @@
             <div class="card">
                 <div class="section-title">
                     <span class="material-symbols-outlined">manage_accounts</span>
-                    Data Management & Reports
+                    Data Management & App
                 </div>
                 
+                <button id="installAppBtn" class="btn-primary btn-install" style="margin-bottom: 12px; display: none;">
+                    <span class="material-symbols-outlined">install_mobile</span> Install App to Home Screen
+                </button>
+
                 <button class="btn-primary btn-pdf" style="margin-bottom: 12px;" onclick="generatePDFReport()">
                     <span class="material-symbols-outlined">picture_as_pdf</span> Download Report (PDF)
                 </button>
@@ -511,6 +516,34 @@
     let userCategories = JSON.parse(localStorage.getItem('userCategoriesArray')) || DEFAULT_CATEGORIES;
     let activeCategoryField = ''; 
     let currentConfirmCallback = null;
+
+    // --- PWA INSTALLATION LOGIC ---
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+        // Prevent Chrome 67 and earlier from automatically showing the prompt
+        e.preventDefault();
+        // Stash the event so it can be triggered later.
+        deferredPrompt = e;
+        // Show the install button in Settings
+        const installBtn = document.getElementById('installAppBtn');
+        if (installBtn) {
+            installBtn.style.display = 'flex';
+        }
+    });
+
+    document.getElementById('installAppBtn').addEventListener('click', async () => {
+        if (deferredPrompt) {
+            // Show the prompt
+            deferredPrompt.prompt();
+            // Wait for the user to respond to the prompt
+            const { outcome } = await deferredPrompt.userChoice;
+            if (outcome === 'accepted') {
+                console.log('User accepted the A2HS prompt');
+                document.getElementById('installAppBtn').style.display = 'none';
+            }
+            deferredPrompt = null;
+        }
+    });
 
     // --- Initialization ---
     window.onload = () => {
@@ -1023,7 +1056,6 @@
         });
         yPos = doc.lastAutoTable.finalY + 15;
         
-        // Check Page break
         if(yPos > 240) { doc.addPage(); yPos = 20; }
         
         // 4. Category Expense Summary
@@ -1097,7 +1129,6 @@
             theme: 'striped',
             headStyles: { fillColor: [67, 97, 238] },
             didDrawPage: function (data) {
-                // Footer pagination
                 let str = "Page " + doc.internal.getNumberOfPages();
                 doc.setFontSize(10);
                 doc.setTextColor(150, 150, 150);
