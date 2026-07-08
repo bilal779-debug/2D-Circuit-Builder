@@ -558,7 +558,7 @@
 
 
 <script>
-    // --- Data Storage & Global Variables ---
+    // --- Data Storage & Global Variables (Single Source of Truth) ---
     let expenses = JSON.parse(localStorage.getItem('expensesArray')) || [];
     let targets = JSON.parse(localStorage.getItem('targetsArray')) || [];
     let editIndex = -1; 
@@ -595,21 +595,22 @@
     }
 
     // --- INTELLIGENT DATA MIGRATION SYSTEM ---
+    // Fixes all backward compatibility and sync issues with old expenses automatically
     function migrateData() {
         let dataChanged = false;
         
         // Comprehensive map to link old user categories to new standards
         const CATEGORY_MAP = {
-            "food & drinks": "Food", "food & dining": "Food", "meals": "Food", "restaurant": "Food", "snack": "Food",
-            "travel": "Transport", "transit": "Transport", "auto": "Transport", "fuel": "Transport", "gas": "Transport", "transportation": "Transport",
-            "utilities": "Bills", "utility": "Bills", "electricity": "Bills", "water bill": "Bills", "gas bill": "Bills", "internet": "Bills", "phone": "Bills",
-            "purchases": "Shopping", "clothes": "Shopping", "apparel": "Shopping",
-            "medical": "Health", "doctor": "Health", "pharmacy": "Health", "medicine": "Health", "fitness": "Health",
-            "school": "Education", "college": "Education", "tuition": "Education", "books": "Education",
-            "wages": "Salary", "income": "Salary", "paycheck": "Salary",
-            "misc": "Miscellaneous", "other": "Miscellaneous", "others": "Miscellaneous", "general": "Miscellaneous",
+            "food & drinks": "Food", "food & dining": "Food", "meals": "Food", "restaurant": "Food", "snack": "Food", "food": "Food",
+            "travel": "Transport", "transit": "Transport", "auto": "Transport", "fuel": "Transport", "gas": "Transport", "transportation": "Transport", "transport": "Transport",
+            "utilities": "Bills", "utility": "Bills", "electricity": "Bills", "water bill": "Bills", "gas bill": "Bills", "internet": "Bills", "phone": "Bills", "bills": "Bills",
+            "purchases": "Shopping", "clothes": "Shopping", "apparel": "Shopping", "shopping": "Shopping",
+            "medical": "Health", "doctor": "Health", "pharmacy": "Health", "medicine": "Health", "fitness": "Health", "health": "Health",
+            "school": "Education", "college": "Education", "tuition": "Education", "books": "Education", "education": "Education",
+            "wages": "Salary", "income": "Salary", "paycheck": "Salary", "salary": "Salary",
+            "misc": "Miscellaneous", "other": "Miscellaneous", "others": "Miscellaneous", "general": "Miscellaneous", "miscellaneous": "Miscellaneous",
             "materials": "Other Materials", "equipment": "Tools", "tools & equipment": "Tools",
-            "house": "Rent", "housing": "Rent", "mortgage": "Rent"
+            "house": "Rent", "housing": "Rent", "mortgage": "Rent", "rent": "Rent"
         };
 
         // 1. Force add ALL standard categories to the user's category array
@@ -627,12 +628,16 @@
         expenses = expenses.map(exp => {
             let e = { ...exp };
             
-            // Fix Price Data Type
+            // Fix Corrupt Price Strings
             if (typeof e.price !== 'number' || isNaN(e.price)) {
                 let rawPrice = String(e.price).replace(/[^0-9.-]+/g, "");
                 e.price = parseFloat(rawPrice) || 0;
                 dataChanged = true;
             }
+
+            // Fill Missing Timestamps
+            if (!e.date) { e.date = getTargetDateString(0); dataChanged = true; }
+            if (!e.time) { e.time = "12:00"; dataChanged = true; }
             
             // Fix Outdated or Missing Categories
             if (!e.category) { 
@@ -641,13 +646,13 @@
             } else {
                 let oldCatLC = e.category.trim().toLowerCase();
                 
-                // If old category name matches the mapping dictionary, update it
+                // If old category name matches the mapping dictionary, update it instantly
                 if (CATEGORY_MAP[oldCatLC] && e.category !== CATEGORY_MAP[oldCatLC]) {
                     e.category = CATEGORY_MAP[oldCatLC];
                     dataChanged = true;
                 }
                 
-                // Safe Fallback: If it's a fully custom unknown category, register it so it calculates correctly
+                // Safe Fallback: Register fully custom unknown categories
                 if (!userCategories.includes(e.category)) {
                     userCategories.push(e.category);
                     dataChanged = true;
@@ -656,7 +661,7 @@
             return e;
         });
 
-        // 3. Migrate Targets Loop (To ensure mapping matches the new expense mappings perfectly)
+        // 3. Migrate Targets Loop (Sync target categories)
         targets = targets.map(t => {
             let targ = { ...t };
             
@@ -1004,6 +1009,7 @@
         userCategories.forEach(cat => { categoryTotals[cat] = 0; });
         targets.forEach(t => { categoryTotals[t.category] = 0; }); 
 
+        // Single Source of Truth Iteration
         expenses.forEach(exp => {
             totalSpent += exp.price;
             if(exp.date === todayStr) todaySpent += exp.price;
@@ -1101,7 +1107,7 @@
             });
         }
 
-        // 5. Render History List
+        // 5. Render History List with synced icons
         renderTableOnly();
     }
 
