@@ -432,6 +432,23 @@
 
             <div class="card">
                 <div class="section-title">
+                    <span class="material-symbols-outlined">sync_saved_locally</span>
+                    Backup & Restore
+                </div>
+                <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">Export your data to save a copy, or import a previously saved backup file.</p>
+                
+                <button class="btn-primary" style="margin-bottom: 12px; background: var(--secondary);" onclick="exportData()">
+                    <span class="material-symbols-outlined">download</span> Export Data
+                </button>
+                
+                <button class="btn-primary btn-outline" onclick="document.getElementById('importFileInput').click()">
+                    <span class="material-symbols-outlined">upload</span> Import Data
+                </button>
+                <input type="file" id="importFileInput" style="display: none;" accept=".json" onchange="handleImportFile(event)">
+            </div>
+
+            <div class="card">
+                <div class="section-title">
                     <span class="material-symbols-outlined">manage_accounts</span>
                     Data Management & App
                 </div>
@@ -532,6 +549,7 @@
     let userCategories = JSON.parse(localStorage.getItem('userCategoriesArray')) || DEFAULT_CATEGORIES;
     let activeCategoryField = ''; 
     let currentConfirmCallback = null;
+    let pendingImportData = null; // Used for staging imported data during confirmation
 
     // --- Dynamic Icons Mapping ---
     const CATEGORY_ICONS = {
@@ -553,22 +571,16 @@
     }
 
     // --- DATA MIGRATION SYSTEM ---
-    // Fixes old string amounts and bad data formats so old records calculate perfectly
     function migrateData() {
         let dataChanged = false;
         
-        // Migrate Expenses
         expenses = expenses.map(exp => {
             let e = { ...exp };
-            
-            // Convert string price to safe float number
             if (typeof e.price !== 'number' || isNaN(e.price)) {
                 let rawPrice = String(e.price).replace(/[^0-9.-]+/g, "");
                 e.price = parseFloat(rawPrice) || 0;
                 dataChanged = true;
             }
-            
-            // Assign default category if missing
             if (!e.category) { 
                 e.category = "Miscellaneous"; 
                 dataChanged = true; 
@@ -576,10 +588,8 @@
             return e;
         });
 
-        // Migrate Targets
         targets = targets.map(t => {
             let targ = { ...t };
-            // Convert string target amount to safe float number
             if (typeof targ.amount !== 'number' || isNaN(targ.amount)) {
                 let rawAmt = String(targ.amount).replace(/[^0-9.-]+/g, "");
                 targ.amount = parseFloat(rawAmt) || 0;
@@ -588,7 +598,6 @@
             return targ;
         });
 
-        // Save safely migrated data back to localStorage
         if (dataChanged) {
             localStorage.setItem('expensesArray', JSON.stringify(expenses));
             localStorage.setItem('targetsArray', JSON.stringify(targets));
@@ -629,7 +638,7 @@
         document.getElementById('totalBudget').value = localStorage.getItem('budget') || '';
         setCurrentDateTime();
         
-        migrateData(); // Safely migrate all old user data BEFORE rendering UI
+        migrateData(); 
         syncAndRenderAll(); 
     };
 
@@ -1038,6 +1047,87 @@
                     </div>`;
             }
         });
+    }
+
+    // --- DATA EXPORT & IMPORT (BACKUP/RESTORE) ---
+    function exportData() {
+        const backupData = {
+            budget: localStorage.getItem('budget') || "",
+            expensesArray: JSON.parse(localStorage.getItem('expensesArray')) || [],
+            targetsArray: JSON.parse(localStorage.getItem('targetsArray')) || [],
+            userCategoriesArray: JSON.parse(localStorage.getItem('userCategoriesArray')) || DEFAULT_CATEGORIES
+        };
+
+        const dataStr = JSON.stringify(backupData, null, 2);
+        const blob = new Blob([dataStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const fileName = `BudgetTracker_Backup_${year}-${month}-${day}.json`;
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    function handleImportFile(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const importedData = JSON.parse(e.target.result);
+                
+                // Validate if it is a correct JSON object structure
+                if (typeof importedData !== 'object' || importedData === null) {
+                    throw new Error("Invalid format.");
+                }
+
+                pendingImportData = importedData;
+                
+                showConfirmModal("Warning: This will replace ALL your current app data with the imported backup. Continue?", () => {
+                    restoreData(pendingImportData);
+                });
+                
+            } catch (error) {
+                alert("Error: The backup file is invalid or corrupted.");
+                console.error("Import Parsing Error:", error);
+            } finally {
+                event.target.value = ''; // Reset input to allow re-selection
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    function restoreData(data) {
+        if (data.budget !== undefined) {
+            localStorage.setItem('budget', data.budget);
+            document.getElementById('totalBudget').value = data.budget;
+        }
+        if (Array.isArray(data.expensesArray)) {
+            expenses = data.expensesArray;
+            localStorage.setItem('expensesArray', JSON.stringify(expenses));
+        }
+        if (Array.isArray(data.targetsArray)) {
+            targets = data.targetsArray;
+            localStorage.setItem('targetsArray', JSON.stringify(targets));
+        }
+        if (Array.isArray(data.userCategoriesArray)) {
+            userCategories = data.userCategoriesArray;
+            localStorage.setItem('userCategoriesArray', JSON.stringify(userCategories));
+        }
+
+        migrateData(); // Make sure imported data converts safely to numbers
+        syncAndRenderAll(); // Instantly update UI without page reload
+        alert("Success: App data has been restored from backup.");
     }
 
     // --- Utilities (PNG & PDF Export) ---
