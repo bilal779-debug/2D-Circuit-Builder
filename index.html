@@ -7,8 +7,8 @@
     <meta name="description" content="Advanced offline-capable budget and expense tracker.">
     <title>Budget Tracker Pro</title>
     
-    <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="./icon-192.png">
     
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -269,6 +269,24 @@
         .cat-list-item:active { background: var(--background); }
         .add-custom-cat { display: flex; gap: 8px; margin-top: 10px; }
 
+        /* --- UPDATE NOTIFICATION TOAST --- */
+        .update-toast {
+            position: fixed; bottom: 85px; left: 50%; transform: translateX(-50%) translateY(100px);
+            background: var(--surface); padding: 12px 20px; border-radius: 30px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 9999;
+            display: flex; align-items: center; gap: 12px; border: 1px solid var(--primary);
+            opacity: 0; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
+        }
+        .update-toast.show {
+            transform: translateX(-50%) translateY(0); opacity: 1; pointer-events: auto;
+        }
+        .update-toast span { font-size: 14px; font-weight: 600; color: var(--on-surface); }
+        .update-toast button {
+            background: var(--primary); color: white; border: none; padding: 6px 14px;
+            border-radius: 20px; font-weight: 600; cursor: pointer;
+        }
+
     </style>
 </head>
 <body>
@@ -473,6 +491,12 @@
 
     </div>
 
+    <div id="updateToast" class="update-toast">
+        <span class="material-symbols-outlined" style="color: var(--primary);">system_update</span>
+        <span>New Update Available!</span>
+        <button onclick="window.location.reload()">Refresh App</button>
+    </div>
+
     <div class="fab" id="mainFab" onclick="switchScreen('add')">
         <span class="material-symbols-outlined">add</span>
     </div>
@@ -549,7 +573,7 @@
     let userCategories = JSON.parse(localStorage.getItem('userCategoriesArray')) || DEFAULT_CATEGORIES;
     let activeCategoryField = ''; 
     let currentConfirmCallback = null;
-    let pendingImportData = null; // Used for staging imported data during confirmation
+    let pendingImportData = null; 
 
     // --- Dynamic Icons Mapping ---
     const CATEGORY_ICONS = {
@@ -605,7 +629,7 @@
     }
 
 
-    // --- PWA INSTALLATION LOGIC ---
+    // --- PWA INSTALLATION LOGIC & UPDATE DETECTION ---
     let deferredPrompt;
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
@@ -621,7 +645,6 @@
             deferredPrompt.prompt();
             const { outcome } = await deferredPrompt.userChoice;
             if (outcome === 'accepted') {
-                console.log('User accepted the A2HS prompt');
                 document.getElementById('installAppBtn').style.display = 'none';
             }
             deferredPrompt = null;
@@ -630,8 +653,35 @@
 
     window.addEventListener('appinstalled', (evt) => {
         document.getElementById('installAppBtn').style.display = 'none';
-        console.log('PWA was installed');
     });
+
+    // PWA Service Worker Registration & Version Detection
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js').then(reg => {
+                // Detect Update Available
+                reg.addEventListener('updatefound', () => {
+                    const newWorker = reg.installing;
+                    newWorker.addEventListener('statechange', () => {
+                        // Check if new SW is installed and the page is currently controlled by an older SW
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            document.getElementById('updateToast').classList.add('show');
+                        }
+                    });
+                });
+            }).catch(error => {
+                console.log('SW registration failed:', error);
+            });
+            
+            // Reload page if SW takes over automatically
+            let refreshing;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (refreshing) return;
+                refreshing = true;
+                window.location.reload();
+            });
+        });
+    }
 
     // --- Initialization ---
     window.onload = () => {
@@ -998,7 +1048,7 @@
             });
         }
 
-        // 5. Render History List with dynamic icons
+        // 5. Render History List
         renderTableOnly();
     }
 
@@ -1086,7 +1136,6 @@
             try {
                 const importedData = JSON.parse(e.target.result);
                 
-                // Validate if it is a correct JSON object structure
                 if (typeof importedData !== 'object' || importedData === null) {
                     throw new Error("Invalid format.");
                 }
@@ -1101,7 +1150,7 @@
                 alert("Error: The backup file is invalid or corrupted.");
                 console.error("Import Parsing Error:", error);
             } finally {
-                event.target.value = ''; // Reset input to allow re-selection
+                event.target.value = ''; 
             }
         };
         reader.readAsText(file);
@@ -1125,8 +1174,8 @@
             localStorage.setItem('userCategoriesArray', JSON.stringify(userCategories));
         }
 
-        migrateData(); // Make sure imported data converts safely to numbers
-        syncAndRenderAll(); // Instantly update UI without page reload
+        migrateData(); 
+        syncAndRenderAll(); 
         alert("Success: App data has been restored from backup.");
     }
 
@@ -1336,19 +1385,6 @@
         });
         
         doc.save('Budget_Tracker_Complete_Report.pdf');
-    }
-
-    // Initialize Service Worker
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('sw.js')
-            .then(registration => {
-                console.log('SW registered with scope:', registration.scope);
-            })
-            .catch(error => {
-                console.log('SW registration failed:', error);
-            });
-        });
     }
 </script>
 </body>
