@@ -54,6 +54,21 @@
             overflow: hidden; 
         }
 
+        /* --- Full Screen Preloader --- */
+        #appPreloader {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--background); z-index: 999999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 0.3s ease;
+            opacity: 1;
+        }
+        .spinner {
+            width: 44px; height: 44px; border: 4px solid var(--outline);
+            border-top-color: var(--primary); border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
         /* --- Top App Bar --- */
         .top-bar {
             height: var(--top-bar-height);
@@ -78,6 +93,11 @@
             overflow-y: auto;
             overflow-x: hidden;
             position: relative;
+        }
+
+        .app-content.auth-mode {
+            margin-top: 0;
+            height: 100vh;
         }
 
         .screen {
@@ -192,6 +212,7 @@
             cursor: pointer; transition: 0.2s; box-shadow: var(--shadow-md);
         }
         button.btn-primary:active { transform: scale(0.98); }
+        button.btn-primary:disabled { opacity: 0.7; cursor: not-allowed; }
         button.btn-outline { background: transparent; border: 2px solid var(--outline); color: var(--on-surface); }
         button.btn-danger { background: var(--danger-container); color: var(--danger); box-shadow: none; }
         button.btn-pdf { background: #0f172a; } 
@@ -290,13 +311,83 @@
 </head>
 <body>
 
-    <div class="top-bar">
+    <div id="appPreloader">
+        <div class="spinner"></div>
+        <p id="preloaderText" style="margin-top: 16px; color: var(--text-muted); font-size: 14px; font-weight: 600;">Authenticating...</p>
+    </div>
+
+    <div class="top-bar" id="mainTopBar" style="display: none;">
         <h1 id="screen-title">Dashboard</h1>
     </div>
 
-    <div class="app-content" id="app-content">
+    <div class="app-content auth-mode" id="app-content">
 
-        <div id="screen-dashboard" class="screen active">
+        <div id="screen-auth" class="screen active" style="padding-top: 40px;">
+            <div class="card" style="margin-top: 20px;">
+                <div style="text-align: center; margin-bottom: 24px;">
+                    <span class="material-symbols-outlined" style="font-size: 48px; color: var(--primary);">account_circle</span>
+                    <h2 style="margin: 8px 0 0 0;" id="authHeaderTitle">Welcome Back</h2>
+                    <p style="margin: 4px 0 0 0; color: var(--text-muted); font-size: 14px;" id="authHeaderSubtitle">Sign in to sync your budget</p>
+                </div>
+                
+                <div id="authMessage" style="display: none; padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; font-weight: 600; text-align: center;"></div>
+
+                <div id="loginForm">
+                    <div class="input-group">
+                        <label>Email</label>
+                        <input type="email" id="loginEmail" placeholder="Enter your email">
+                    </div>
+                    <div class="input-group">
+                        <label>Password</label>
+                        <input type="password" id="loginPassword" placeholder="Enter your password">
+                    </div>
+                    <button class="btn-primary" onclick="window.handleLogin()" id="loginBtn">
+                        <span class="material-symbols-outlined">login</span> Login
+                    </button>
+                    <div style="text-align: right; margin-top: 8px;">
+                        <a href="#" onclick="window.handleForgotPassword()" style="color: var(--primary); font-size: 13px; text-decoration: none; font-weight: 600;">Forgot Password?</a>
+                    </div>
+                    
+                    <button class="btn-primary btn-outline" style="margin-top: 16px;" onclick="window.handleGoogleLogin()">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" width="18" style="margin-right: 8px;"> Continue with Google
+                    </button>
+
+                    <p style="text-align: center; font-size: 13px; margin-top: 24px; color: var(--text-muted);">
+                        Don't have an account? <a href="#" onclick="window.toggleAuthMode('signup')" style="color: var(--primary); font-weight: 600; text-decoration: none;">Sign Up</a>
+                    </p>
+                </div>
+
+                <div id="signupForm" style="display: none;">
+                    <div class="input-group">
+                        <label>Full Name</label>
+                        <input type="text" id="signupName" placeholder="Enter your full name">
+                    </div>
+                    <div class="input-group">
+                        <label>Email</label>
+                        <input type="email" id="signupEmail" placeholder="Enter your email">
+                    </div>
+                    <div class="input-group">
+                        <label>Password</label>
+                        <input type="password" id="signupPassword" placeholder="Create a password (min 6 chars)">
+                    </div>
+                    <button class="btn-primary" onclick="window.handleSignup()" id="signupBtn">
+                        <span class="material-symbols-outlined">person_add</span> Sign Up
+                    </button>
+                    
+                    <p style="text-align: center; font-size: 13px; margin-top: 24px; color: var(--text-muted);">
+                        Already have an account? <a href="#" onclick="window.toggleAuthMode('login')" style="color: var(--primary); font-weight: 600; text-decoration: none;">Login</a>
+                    </p>
+                </div>
+                
+                <div id="resendVerifContainer" style="display: none; margin-top: 16px;">
+                    <button class="btn-primary btn-outline" onclick="window.handleResendVerification()" id="resendBtn">
+                        <span class="material-symbols-outlined">mark_email_read</span> Resend Verification Email
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="screen-dashboard" class="screen">
             <div class="grid-2">
                 <div class="metric-card highlight" style="grid-column: span 2;">
                     <p>Total Budget</p>
@@ -346,7 +437,7 @@
                 
                 <div class="input-group">
                     <label>Category (Required)</label>
-                    <div class="custom-select-box" onclick="openCategoryModal('expense')">
+                    <div class="custom-select-box" onclick="window.openCategoryModal('expense')">
                         <span id="expenseCategoryText" style="color: var(--text-muted);">Tap to select category...</span>
                         <span class="material-symbols-outlined">expand_more</span>
                     </div>
@@ -374,7 +465,7 @@
                     </div>
                 </div>
                 
-                <button class="btn-primary" id="addBtn" onclick="addOrUpdateItem()">
+                <button class="btn-primary" id="addBtn" onclick="window.addOrUpdateItem()">
                     <span class="material-symbols-outlined">save</span> Save Expense
                 </button>
             </div>
@@ -383,7 +474,7 @@
         <div id="screen-history" class="screen">
             <div class="search-bar">
                 <div class="input-group" style="margin: 0;">
-                    <input type="text" id="searchBar" placeholder="Search expenses..." oninput="renderTableOnly()">
+                    <input type="text" id="searchBar" placeholder="Search expenses..." oninput="window.renderTableOnly()">
                 </div>
             </div>
             <div class="card" style="padding: 0; border: none; box-shadow: none; background: transparent;">
@@ -408,7 +499,7 @@
                 
                 <div class="input-group">
                     <label>Target Category (Required)</label>
-                    <div class="custom-select-box" onclick="openCategoryModal('target')">
+                    <div class="custom-select-box" onclick="window.openCategoryModal('target')">
                         <span id="targetCategoryText" style="color: var(--text-muted);">Tap to select category...</span>
                         <span class="material-symbols-outlined">expand_more</span>
                     </div>
@@ -423,7 +514,7 @@
                     <label>Amount (Rs)</label>
                     <input type="number" id="targetAmount" placeholder="0.00">
                 </div>
-                <button class="btn-primary" onclick="addTarget()">
+                <button class="btn-primary" onclick="window.addTarget()">
                     <span class="material-symbols-outlined">add_task</span> Add Target
                 </button>
             </div>
@@ -436,6 +527,18 @@
         </div>
 
         <div id="screen-settings" class="screen">
+            
+            <div class="card">
+                <div class="section-title">
+                    <span class="material-symbols-outlined">security</span>
+                    Account Security
+                </div>
+                <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">Sign out safely. Your offline data will be cleared from this device for your privacy.</p>
+                <button class="btn-primary btn-outline" style="border-color: var(--danger); color: var(--danger);" onclick="window.handleLogout()">
+                    <span class="material-symbols-outlined">logout</span> Log Out
+                </button>
+            </div>
+
             <div class="card">
                 <div class="section-title">
                     <span class="material-symbols-outlined">account_balance_wallet</span>
@@ -443,7 +546,7 @@
                 </div>
                 <div class="input-group">
                     <label>Total Allocated Budget (Rs)</label>
-                    <input type="number" id="totalBudget" oninput="saveBudget()" placeholder="Enter your total budget">
+                    <input type="number" id="totalBudget" oninput="window.saveBudget()" placeholder="Enter your total budget">
                 </div>
             </div>
 
@@ -454,14 +557,14 @@
                 </div>
                 <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">Export your data to save a copy, or import a previously saved backup file.</p>
                 
-                <button class="btn-primary" style="margin-bottom: 12px; background: var(--secondary);" onclick="exportData()">
+                <button class="btn-primary" style="margin-bottom: 12px; background: var(--secondary);" onclick="window.exportData()">
                     <span class="material-symbols-outlined">download</span> Export Data
                 </button>
                 
                 <button class="btn-primary btn-outline" onclick="document.getElementById('importFileInput').click()">
                     <span class="material-symbols-outlined">upload</span> Import Data
                 </button>
-                <input type="file" id="importFileInput" style="display: none;" accept=".json" onchange="handleImportFile(event)">
+                <input type="file" id="importFileInput" style="display: none;" accept=".json" onchange="window.handleImportFile(event)">
             </div>
 
             <div class="card">
@@ -474,15 +577,15 @@
                     <span class="material-symbols-outlined">install_mobile</span> Install App to Home Screen
                 </button>
 
-                <button class="btn-primary btn-pdf" style="margin-bottom: 12px;" onclick="generatePDFReport()">
+                <button class="btn-primary btn-pdf" style="margin-bottom: 12px;" onclick="window.generatePDFReport()">
                     <span class="material-symbols-outlined">picture_as_pdf</span> Download Report (PDF)
                 </button>
                 
-                <button class="btn-primary btn-outline" style="margin-bottom: 30px;" onclick="saveAsPNG()">
+                <button class="btn-primary btn-outline" style="margin-bottom: 30px;" onclick="window.saveAsPNG()">
                     <span class="material-symbols-outlined">image</span> Dashboard Snapshot (PNG)
                 </button>
-                
-                <button class="btn-primary btn-danger" onclick="confirmResetData()">
+
+                <button class="btn-primary btn-danger" onclick="window.confirmResetData()">
                     <span class="material-symbols-outlined">delete_forever</span> Reset All Data
                 </button>
             </div>
@@ -496,28 +599,28 @@
         <button onclick="window.location.reload()">Refresh App</button>
     </div>
 
-    <div class="fab" id="mainFab" onclick="switchScreen('add')">
+    <div class="fab" id="mainFab" style="display: none;" onclick="window.switchScreen('add')">
         <span class="material-symbols-outlined">add</span>
     </div>
 
-    <nav class="bottom-nav">
-        <div class="nav-item active" onclick="switchScreen('dashboard')" id="nav-dashboard">
+    <nav class="bottom-nav" id="mainBottomNav" style="display: none;">
+        <div class="nav-item active" onclick="window.switchScreen('dashboard')" id="nav-dashboard">
             <div class="icon-container"><span class="material-symbols-outlined">home</span></div>
             <span>Home</span>
         </div>
-        <div class="nav-item" onclick="switchScreen('history')" id="nav-history">
+        <div class="nav-item" onclick="window.switchScreen('history')" id="nav-history">
             <div class="icon-container"><span class="material-symbols-outlined">receipt_long</span></div>
             <span>History</span>
         </div>
-        <div class="nav-item" onclick="switchScreen('categories')" id="nav-categories">
+        <div class="nav-item" onclick="window.switchScreen('categories')" id="nav-categories">
             <div class="icon-container"><span class="material-symbols-outlined">donut_large</span></div>
             <span>Summary</span>
         </div>
-        <div class="nav-item" onclick="switchScreen('targets')" id="nav-targets">
+        <div class="nav-item" onclick="window.switchScreen('targets')" id="nav-targets">
             <div class="icon-container"><span class="material-symbols-outlined">target</span></div>
             <span>Targets</span>
         </div>
-        <div class="nav-item" onclick="switchScreen('settings')" id="nav-settings">
+        <div class="nav-item" onclick="window.switchScreen('settings')" id="nav-settings">
             <div class="icon-container"><span class="material-symbols-outlined">settings</span></div>
             <span>Settings</span>
         </div>
@@ -528,9 +631,20 @@
             <h3 style="margin: 0 0 10px 0; font-size: 18px;">Confirm Action</h3>
             <p id="confirmMessage" style="color: var(--text-muted); font-size: 14px; margin: 0;">Are you sure?</p>
             <div class="confirm-actions">
-                <button class="btn-cancel" onclick="closeConfirmModal()">Cancel</button>
+                <button class="btn-cancel" onclick="window.closeConfirmModal()">Cancel</button>
                 <button class="btn-confirm" id="confirmOkBtn">OK</button>
             </div>
+        </div>
+    </div>
+
+    <div id="authSuccessModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 320px; text-align: center;">
+            <span class="material-symbols-outlined" style="font-size: 48px; color: var(--success); margin-bottom: 12px;">mark_email_read</span>
+            <h3 style="margin: 0 0 10px 0; font-size: 18px;">Account Created!</h3>
+            <p style="color: var(--text-muted); font-size: 14px; margin: 0 0 20px 0;">
+                Please check your inbox <strong style="color: var(--on-surface);">and Spam/Junk folder</strong> to verify your email before logging in.
+            </p>
+            <button class="btn-primary" onclick="document.getElementById('authSuccessModal').classList.remove('show')">Got it</button>
         </div>
     </div>
 
@@ -538,10 +652,10 @@
         <div class="modal-content" style="height: 80vh;">
             <div class="cat-modal-header">
                 <h3>Select Category</h3>
-                <button class="close-btn" onclick="closeCategoryModal()">&times;</button>
+                <button class="close-btn" onclick="window.closeCategoryModal()">&times;</button>
             </div>
             
-            <input type="text" id="catSearchInput" placeholder="Search category..." oninput="renderCategoryList()">
+            <input type="text" id="catSearchInput" placeholder="Search category..." oninput="window.renderCategoryList()">
             
             <div class="cat-list" id="categoryListContainer"></div>
 
@@ -549,18 +663,49 @@
                 <label style="font-size: 11px;">Not in list? Add Custom Category</label>
                 <div class="add-custom-cat">
                     <input type="text" id="newCategoryInput" placeholder="New category name">
-                    <button class="btn-primary btn-small" onclick="addNewCategory()" style="width: auto;">Add</button>
+                    <button class="btn-primary btn-small" onclick="window.addNewCategory()" style="width: auto;">Add</button>
                 </div>
             </div>
         </div>
     </div>
 
+<script type="module">
+    // --- FIREBASE MODULAR SDK V10/V11 (Latest) ---
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { 
+        getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, 
+        onAuthStateChanged, signOut, sendEmailVerification, sendPasswordResetEmail, 
+        updateProfile, GoogleAuthProvider, signInWithPopup 
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { 
+        getFirestore, doc, setDoc, getDoc 
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-<script>
-    // --- Data Storage & Global Variables ---
-    let expenses = JSON.parse(localStorage.getItem('expensesArray')) || [];
-    let targets = JSON.parse(localStorage.getItem('targetsArray')) || [];
+    const firebaseConfig = {
+        apiKey: "AIzaSyDuLq3TmfLxF4MOCBljlD7pxmtddNIUdyY",
+        authDomain: "budget-tracker-com.firebaseapp.com",
+        projectId: "budget-tracker-com",
+        storageBucket: "budget-tracker-com.firebasestorage.app",
+        messagingSenderId: "500306966715",
+        appId: "1:500306966715:web:4c909fcbc7898482d0119e",
+        measurementId: "G-N1N10TPNFW"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    let currentUser = null;
+
+    // Global flag for Signup process
+    window.isSigningUp = false;
+
+    // --- Core Variables ---
+    let expenses = [];
+    let targets = [];
     let editIndex = -1; 
+    let activeCategoryField = ''; 
+    let currentConfirmCallback = null;
+    let pendingImportData = null; 
 
     const DEFAULT_CATEGORIES = [
         "Food", "Transport", "Bills", "Shopping", "Health", "Education", 
@@ -568,13 +713,246 @@
         "Bricks", "Sand", "Crush", "Electrical", "Plumbing", "Sanitary", 
         "Paint", "Hardware", "Miscellaneous", "Wiring", "Carpenter", "Tiles", "Marble", "Doors", "Windows", "Ceiling", "Transportation", "Machinery", "Tools", "Water", "Other Materials"
     ];
-    
-    let userCategories = JSON.parse(localStorage.getItem('userCategoriesArray')) || DEFAULT_CATEGORIES;
-    let activeCategoryField = ''; 
-    let currentConfirmCallback = null;
-    let pendingImportData = null; 
+    let userCategories = [...DEFAULT_CATEGORIES];
 
-    // --- Dynamic Icons Mapping ---
+    // --- Loading Screen Global Functions ---
+    window.showPreloader = (text = "Loading...") => {
+        const preloader = document.getElementById('appPreloader');
+        const preText = document.getElementById('preloaderText');
+        if (preText) preText.innerText = text;
+        if (preloader) {
+            preloader.style.display = 'flex';
+            setTimeout(() => preloader.style.opacity = '1', 10);
+        }
+    };
+
+    window.hidePreloader = () => {
+        const preloader = document.getElementById('appPreloader');
+        if(preloader) {
+            preloader.style.opacity = '0';
+            setTimeout(() => {
+                preloader.style.display = 'none';
+            }, 300);
+        }
+    };
+
+    // --- Firebase Auth & DB Logic ---
+    function showMessage(msg, type = 'error') {
+        const msgDiv = document.getElementById('authMessage');
+        msgDiv.innerText = msg;
+        msgDiv.style.display = 'block';
+        msgDiv.style.backgroundColor = type === 'error' ? 'var(--danger-container)' : 'var(--primary-container)';
+        msgDiv.style.color = type === 'error' ? 'var(--danger)' : 'var(--primary)';
+        msgDiv.style.border = `1px solid ${type === 'error' ? 'var(--danger)' : 'var(--primary)'}`;
+    }
+
+    async function saveToFirestore() {
+        if (!currentUser) return;
+        const dataToSave = {
+            budget: document.getElementById('totalBudget').value || "",
+            expensesArray: expenses,
+            targetsArray: targets,
+            userCategoriesArray: userCategories
+        };
+        try {
+            await setDoc(doc(db, "users", currentUser.uid), dataToSave, { merge: true });
+        } catch (e) {
+            console.error("Error saving data: ", e);
+        }
+    }
+
+    async function loadFromFirestore(uid) {
+        try {
+            const docSnap = await getDoc(doc(db, "users", uid));
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                expenses = data.expensesArray || [];
+                targets = data.targetsArray || [];
+                userCategories = data.userCategoriesArray || [...DEFAULT_CATEGORIES];
+                document.getElementById('totalBudget').value = data.budget || "";
+            } else {
+                await saveToFirestore();
+            }
+            migrateData();
+            window.syncAndRenderAll();
+        } catch (e) {
+            console.error("Error loading data: ", e);
+        }
+    }
+
+    // Single Authentication Listener
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            if (window.isSigningUp) return;
+
+            await user.reload(); 
+            const isGoogleProvider = user.providerData.some(p => p.providerId === 'google.com');
+            
+            if (user.emailVerified || isGoogleProvider) {
+                currentUser = user;
+                document.getElementById('mainTopBar').style.display = 'flex';
+                document.getElementById('mainBottomNav').style.display = 'flex';
+                document.getElementById('app-content').classList.remove('auth-mode');
+                
+                await loadFromFirestore(user.uid);
+                window.switchScreen('dashboard');
+                window.hidePreloader(); 
+            } else {
+                currentUser = null;
+                await signOut(auth);
+                window.toggleAuthMode('login');
+                showMessage("Verify your email first to access the dashboard. (Check your spam folder too!)");
+                document.getElementById('resendVerifContainer').style.display = 'block';
+                window.hidePreloader();
+            }
+        } else {
+            // No User
+            currentUser = null;
+            document.getElementById('mainTopBar').style.display = 'none';
+            document.getElementById('mainBottomNav').style.display = 'none';
+            document.getElementById('mainFab').style.display = 'none';
+            document.getElementById('app-content').classList.add('auth-mode');
+            window.switchScreen('auth');
+            window.hidePreloader();
+        }
+    });
+
+    window.toggleAuthMode = (mode) => {
+        document.getElementById('loginForm').style.display = mode === 'login' ? 'block' : 'none';
+        document.getElementById('signupForm').style.display = mode === 'signup' ? 'block' : 'none';
+        document.getElementById('resendVerifContainer').style.display = 'none';
+        document.getElementById('authMessage').style.display = 'none';
+        
+        document.getElementById('authHeaderTitle').innerText = mode === 'login' ? 'Welcome Back' : 'Create Account';
+        document.getElementById('authHeaderSubtitle').innerText = mode === 'login' ? 'Sign in to sync your budget' : 'Join to track expenses offline & online';
+    };
+
+    window.handleSignup = async () => {
+        const name = document.getElementById('signupName').value.trim();
+        const email = document.getElementById('signupEmail').value.trim();
+        const password = document.getElementById('signupPassword').value.trim();
+        
+        if (!name || !email || !password) {
+            showMessage("Please fill all fields."); return;
+        }
+
+        window.showPreloader("Creating Account...");
+        window.isSigningUp = true; 
+        window.lastLoginEmail = email;
+        window.lastLoginPassword = password;
+
+        try {
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const user = userCredential.user;
+            
+            await updateProfile(user, { displayName: name });
+            
+            await setDoc(doc(db, "users", user.uid), {
+                budget: "", expensesArray: [], targetsArray: [], userCategoriesArray: [...DEFAULT_CATEGORIES]
+            });
+
+            await sendEmailVerification(user);
+            
+            window.isSigningUp = false;
+            await signOut(auth); 
+            
+            window.toggleAuthMode('login');
+            document.getElementById('authSuccessModal').classList.add('show');
+            document.getElementById('signupName').value = '';
+            document.getElementById('signupEmail').value = '';
+            document.getElementById('signupPassword').value = '';
+
+        } catch (error) {
+            window.isSigningUp = false;
+            showMessage(error.message);
+        } finally {
+            window.hidePreloader();
+        }
+    };
+
+    window.handleLogin = async () => {
+        const email = document.getElementById('loginEmail').value.trim();
+        const password = document.getElementById('loginPassword').value.trim();
+
+        if (!email || !password) { showMessage("Please enter email and password."); return; }
+        
+        window.showPreloader("Logging In...");
+
+        try {
+            window.lastLoginEmail = email;
+            window.lastLoginPassword = password;
+            await signInWithEmailAndPassword(auth, email, password);
+            // onAuthStateChanged will handle hiding the preloader on success
+        } catch (error) {
+            window.hidePreloader();
+            showMessage("Invalid email or password.");
+        }
+    };
+
+    window.handleGoogleLogin = async () => {
+        window.showPreloader("Connecting to Google...");
+        const provider = new GoogleAuthProvider();
+        try {
+            await signInWithPopup(auth, provider);
+            // onAuthStateChanged will handle hiding the preloader on success
+        } catch (error) {
+            window.hidePreloader();
+            showMessage("Google Sign-In failed.");
+        }
+    };
+
+    window.handleForgotPassword = async () => {
+        const email = document.getElementById('loginEmail').value.trim();
+        if (!email) { showMessage("Please enter your email address in the field above first."); return; }
+        
+        window.showPreloader("Sending Link...");
+        try {
+            await sendPasswordResetEmail(auth, email);
+            showMessage("Password reset email sent! Please check your spam folder too.", "success");
+        } catch (error) {
+            showMessage(error.message);
+        } finally {
+            window.hidePreloader();
+        }
+    };
+
+    window.handleResendVerification = async () => {
+        if (!window.lastLoginEmail || !window.lastLoginPassword) return;
+        
+        window.showPreloader("Sending Verification...");
+        try {
+            const cred = await signInWithEmailAndPassword(auth, window.lastLoginEmail, window.lastLoginPassword);
+            await sendEmailVerification(cred.user);
+            await signOut(auth);
+            showMessage("Verification email resent! Make sure to check your Spam/Junk folder.", "success");
+        } catch (error) {
+            showMessage(error.message);
+        } finally {
+            window.hidePreloader();
+        }
+    };
+
+    window.handleLogout = async () => {
+        window.showConfirmModal("Are you sure you want to log out?", async () => {
+            window.showPreloader("Logging Out...");
+            try {
+                await signOut(auth);
+                // Clear local memory so data doesn't flash for the next user
+                expenses = [];
+                targets = [];
+                document.getElementById('totalBudget').value = "";
+                window.syncAndRenderAll();
+                // onAuthStateChanged handles the screen switch and preloader hide
+            } catch (error) {
+                window.hidePreloader();
+                console.error("Logout error", error);
+            }
+        });
+    };
+
+
+    // --- Core Application Logic (Migrated for global window access) ---
+    
     const CATEGORY_ICONS = {
         "Food": "restaurant", "Transport": "directions_car", "Bills": "receipt_long", 
         "Shopping": "shopping_cart", "Health": "medical_services", "Education": "school", 
@@ -589,23 +967,13 @@
         "Tools": "build", "Water": "water", "Miscellaneous": "category", "Other Materials": "inventory_2"
     };
 
-    function getIconForCategory(catName) {
-        return CATEGORY_ICONS[catName] || "label";
-    }
+    function getIconForCategory(catName) { return CATEGORY_ICONS[catName] || "label"; }
 
-    // --- INTELLIGENT DATA MIGRATION SYSTEM ---
-    // Fixes old emoji strings and correctly merges categories perfectly.
     function migrateData() {
         let dataChanged = false;
-        
-        // Helper function to strip emojis and map correctly
         function cleanCategory(catName) {
             if (!catName) return "Miscellaneous";
-            
-            // 1. Strip all emojis and extra spaces from old names
             let cleaned = catName.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '').trim();
-            
-            // 2. Direct mapping for completely changed names
             const CATEGORY_MAP = {
                 "food & drinks": "Food", "food & dining": "Food", "meals": "Food", "restaurant": "Food", "snack": "Food", "food": "Food",
                 "travel": "Transport", "transit": "Transport", "auto": "Transport", "fuel": "Transport", "gas": "Transport", "transportation": "Transport", "transport": "Transport",
@@ -618,20 +986,13 @@
                 "materials": "Other Materials", "equipment": "Tools", "tools & equipment": "Tools",
                 "house": "Rent", "housing": "Rent", "mortgage": "Rent", "rent": "Rent"
             };
-
             let lc = cleaned.toLowerCase();
             if (CATEGORY_MAP[lc]) return CATEGORY_MAP[lc];
-
-            // 3. Fallback: If the cleaned name (or old name) contains our standard category, merge it!
-            // Example: "👷 Contractor Payment" will hit this and perfectly become "Contractor Payment"
             let found = DEFAULT_CATEGORIES.find(c => catName.toLowerCase().includes(c.toLowerCase()));
             if(found) return found;
-
-            // 4. Return title-cased custom name if nothing else matches
             return cleaned.replace(/\b\w/g, l => l.toUpperCase()) || "Miscellaneous";
         }
 
-        // Apply cleaning strictly to expenses array
         expenses = expenses.map(exp => {
             let e = { ...exp };
             if (typeof e.price !== 'number' || isNaN(e.price)) {
@@ -641,15 +1002,12 @@
             }
             if (!e.date) { e.date = getTargetDateString(0); dataChanged = true; }
             if (!e.time) { e.time = "12:00"; dataChanged = true; }
-            
             let oldCat = e.category;
             e.category = cleanCategory(oldCat);
             if (oldCat !== e.category) dataChanged = true;
-
             return e;
         });
 
-        // Apply cleaning strictly to targets array
         targets = targets.map(t => {
             let targ = { ...t };
             if (typeof targ.amount !== 'number' || isNaN(targ.amount)) {
@@ -657,15 +1015,12 @@
                 targ.amount = parseFloat(rawAmt) || 0;
                 dataChanged = true;
             }
-            
             let oldCat = targ.category;
             targ.category = cleanCategory(oldCat);
             if (oldCat !== targ.category) dataChanged = true;
-
             return targ;
         });
 
-        // 4. Clean user categories array completely from duplicate emojis and out-of-sync names
         let newCategoriesSet = new Set(DEFAULT_CATEGORIES);
         expenses.forEach(e => newCategoriesSet.add(e.category));
         targets.forEach(t => newCategoriesSet.add(t.category));
@@ -675,41 +1030,26 @@
             userCategories = newCategoriesArray;
             dataChanged = true;
         }
-
-        // 5. Final Save to Single Source of Truth
-        if (dataChanged) {
-            localStorage.setItem('expensesArray', JSON.stringify(expenses));
-            localStorage.setItem('targetsArray', JSON.stringify(targets));
-            localStorage.setItem('userCategoriesArray', JSON.stringify(userCategories));
-        }
+        if (dataChanged) saveToFirestore();
     }
 
-
-    // --- PWA INSTALLATION LOGIC & UPDATE DETECTION ---
     let deferredPrompt;
     window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        deferredPrompt = e;
+        e.preventDefault(); deferredPrompt = e;
         const installBtn = document.getElementById('installAppBtn');
-        if (installBtn) {
-            installBtn.style.display = 'flex';
-        }
+        if (installBtn) installBtn.style.display = 'flex';
     });
 
     document.getElementById('installAppBtn').addEventListener('click', async () => {
         if (deferredPrompt) {
             deferredPrompt.prompt();
             const { outcome } = await deferredPrompt.userChoice;
-            if (outcome === 'accepted') {
-                document.getElementById('installAppBtn').style.display = 'none';
-            }
+            if (outcome === 'accepted') document.getElementById('installAppBtn').style.display = 'none';
             deferredPrompt = null;
         }
     });
 
-    window.addEventListener('appinstalled', (evt) => {
-        document.getElementById('installAppBtn').style.display = 'none';
-    });
+    window.addEventListener('appinstalled', () => { document.getElementById('installAppBtn').style.display = 'none'; });
 
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
@@ -722,71 +1062,65 @@
                         }
                     });
                 });
-            }).catch(error => {
-                console.log('SW registration failed:', error);
-            });
-            
+            }).catch(e => console.log('SW registration failed:', e));
             let refreshing;
             navigator.serviceWorker.addEventListener('controllerchange', () => {
-                if (refreshing) return;
-                refreshing = true;
-                window.location.reload();
+                if (refreshing) return; refreshing = true; window.location.reload();
             });
         });
     }
 
-    // --- Initialization ---
-    window.onload = () => {
-        document.getElementById('totalBudget').value = localStorage.getItem('budget') || '';
-        setCurrentDateTime();
-        
-        // Critical: Data migration always runs BEFORE rendering to enforce new system mappings
-        migrateData(); 
-        syncAndRenderAll(); 
-    };
+    function setCurrentDateTime() {
+        const now = new Date();
+        const year = now.getFullYear(); const month = String(now.getMonth() + 1).padStart(2, '0'); const day = String(now.getDate()).padStart(2, '0');
+        document.getElementById('itemDate').value = `${year}-${month}-${day}`;
+        const hours = String(now.getHours()).padStart(2, '0'); const minutes = String(now.getMinutes()).padStart(2, '0');
+        document.getElementById('itemTime').value = `${hours}:${minutes}`;
+    }
 
-    // --- Custom Confirm Modal Logic ---
-    function showConfirmModal(message, callback) {
+    document.addEventListener('DOMContentLoaded', () => {
+        setCurrentDateTime();
+    });
+
+    window.showConfirmModal = (message, callback) => {
         document.getElementById('confirmMessage').innerText = message;
         currentConfirmCallback = callback;
         document.getElementById('customConfirmModal').classList.add('show');
-    }
-    function closeConfirmModal() {
+    };
+    
+    window.closeConfirmModal = () => {
         document.getElementById('customConfirmModal').classList.remove('show');
         currentConfirmCallback = null;
-    }
+    };
+    
     document.getElementById('confirmOkBtn').addEventListener('click', () => {
         if (currentConfirmCallback) currentConfirmCallback();
-        closeConfirmModal();
+        window.closeConfirmModal();
     });
 
-    // --- Custom Category Modal Logic ---
-    function openCategoryModal(fieldType) {
+    window.openCategoryModal = (fieldType) => {
         activeCategoryField = fieldType; 
         document.getElementById('catSearchInput').value = '';
-        renderCategoryList();
+        window.renderCategoryList();
         document.getElementById('categoryModal').classList.add('show');
-    }
+    };
 
-    function closeCategoryModal() {
-        document.getElementById('categoryModal').classList.remove('show');
-    }
+    window.closeCategoryModal = () => { document.getElementById('categoryModal').classList.remove('show'); };
 
-    function renderCategoryList() {
+    window.renderCategoryList = () => {
         const container = document.getElementById('categoryListContainer');
         const searchTerm = document.getElementById('catSearchInput').value.toLowerCase();
         container.innerHTML = '';
-
         let filtered = userCategories.filter(cat => cat.toLowerCase().includes(searchTerm));
         if(filtered.length === 0) {
             container.innerHTML = '<p style="text-align:center; color:#94a3b8; font-size: 13px; margin-top:20px;">No categories found.</p>';
         }
         filtered.forEach(cat => {
-            container.innerHTML += `<div class="cat-list-item" onclick="selectCategory('${cat}')">${cat}</div>`;
+            container.innerHTML += `<div class="cat-list-item" onclick="window.selectCategory('${cat}')">${cat}</div>`;
         });
-    }
+    };
 
-    function selectCategory(catName) {
+    window.selectCategory = (catName) => {
         if (activeCategoryField === 'expense') {
             document.getElementById('itemCategoryVal').value = catName;
             document.getElementById('expenseCategoryText').innerText = catName;
@@ -796,28 +1130,28 @@
             document.getElementById('targetCategoryText').innerText = catName;
             document.getElementById('targetCategoryText').style.color = 'var(--on-surface)';
         }
-        closeCategoryModal();
-    }
+        window.closeCategoryModal();
+    };
 
-    function addNewCategory() {
+    window.addNewCategory = () => {
         const newCat = document.getElementById('newCategoryInput').value.trim();
         if(newCat) {
             let exists = userCategories.find(c => c.toLowerCase() === newCat.toLowerCase());
             if(!exists) {
                 userCategories.push(newCat);
-                localStorage.setItem('userCategoriesArray', JSON.stringify(userCategories));
+                saveToFirestore();
             }
             document.getElementById('newCategoryInput').value = '';
-            selectCategory(newCat); 
+            window.selectCategory(newCat); 
         }
-    }
+    };
 
-    // --- Navigation Logic ---
-    function switchScreen(screenId) {
+    window.switchScreen = (screenId) => {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         
-        document.getElementById('screen-' + screenId).classList.add('active');
+        const targetScreen = document.getElementById('screen-' + screenId);
+        if(targetScreen) targetScreen.classList.add('active');
         const navItem = document.getElementById('nav-' + screenId);
         if(navItem) navItem.classList.add('active');
 
@@ -827,31 +1161,19 @@
             'history': 'Expense History',
             'categories': 'Category Summary',
             'targets': 'Payment Targets',
-            'settings': 'Settings & Reports'
+            'settings': 'Settings & Reports',
+            'auth': 'Login'
         };
-        document.getElementById('screen-title').innerText = titleMap[screenId];
+        document.getElementById('screen-title').innerText = titleMap[screenId] || '';
 
         const fab = document.getElementById('mainFab');
         if(screenId === 'dashboard' || screenId === 'history') {
             fab.style.display = 'flex';
-            if (editIndex !== -1 && screenId !== 'add') resetForm();
+            if (editIndex !== -1 && screenId !== 'add') window.resetForm();
         } else {
             fab.style.display = 'none';
         }
-    }
-
-    // --- Helpers ---
-    function setCurrentDateTime() {
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        document.getElementById('itemDate').value = `${year}-${month}-${day}`;
-        
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        document.getElementById('itemTime').value = `${hours}:${minutes}`;
-    }
+    };
 
     function formatDateDisplay(dateStr) {
         if(!dateStr) return '';
@@ -870,25 +1192,19 @@
     }
 
     function getTargetDateString(offsetDays) {
-        let d = new Date();
-        d.setDate(d.getDate() - offsetDays);
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
+        let d = new Date(); d.setDate(d.getDate() - offsetDays);
+        const year = d.getFullYear(); const month = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
     }
 
-    function formatCurrency(num) {
-        return num.toLocaleString('en-IN');
-    }
+    function formatCurrency(num) { return num.toLocaleString('en-IN'); }
 
-    function saveBudget() {
-        localStorage.setItem('budget', document.getElementById('totalBudget').value);
-        syncAndRenderAll();
-    }
+    window.saveBudget = () => {
+        saveToFirestore();
+        window.syncAndRenderAll();
+    };
 
-    // --- Target System ---
-    function addTarget() {
+    window.addTarget = () => {
         let category = document.getElementById('targetCategoryVal').value;
         let amount = document.getElementById('targetAmount').value;
         let name = document.getElementById('targetName').value.trim() || category;
@@ -897,28 +1213,26 @@
         if (!amount) { alert("Please enter target amount!"); return; }
 
         targets.push({ name: name, amount: parseFloat(amount), category: category });
-        localStorage.setItem('targetsArray', JSON.stringify(targets));
+        saveToFirestore();
         
-        document.getElementById('targetName').value = '';
-        document.getElementById('targetAmount').value = '';
+        document.getElementById('targetName').value = ''; document.getElementById('targetAmount').value = '';
         document.getElementById('targetCategoryVal').value = '';
         document.getElementById('targetCategoryText').innerText = 'Tap to select category...';
         document.getElementById('targetCategoryText').style.color = 'var(--text-muted)';
         
-        syncAndRenderAll(); 
-        switchScreen('targets');
-    }
+        window.syncAndRenderAll(); 
+        window.switchScreen('targets');
+    };
 
-    function deleteTarget(index) {
-        showConfirmModal("Delete this payment target?", () => {
+    window.deleteTarget = (index) => {
+        window.showConfirmModal("Delete this payment target?", () => {
             targets.splice(index, 1);
-            localStorage.setItem('targetsArray', JSON.stringify(targets));
-            syncAndRenderAll();
+            saveToFirestore();
+            window.syncAndRenderAll();
         });
-    }
+    };
 
-    // --- Expense Management ---
-    function addOrUpdateItem() {
+    window.addOrUpdateItem = () => {
         let category = document.getElementById('itemCategoryVal').value;
         let price = document.getElementById('itemPrice').value;
         let date = document.getElementById('itemDate').value;
@@ -930,39 +1244,32 @@
 
         let newItem = { name: name, price: parseFloat(price), category: category, date: date, time: time };
         
-        if (editIndex === -1) {
-            expenses.unshift(newItem); 
-        } else {
-            expenses[editIndex] = newItem;
-            resetForm();
-        }
+        if (editIndex === -1) { expenses.unshift(newItem); } 
+        else { expenses[editIndex] = newItem; window.resetForm(); }
         
-        document.getElementById('itemName').value = '';
-        document.getElementById('itemPrice').value = '';
+        document.getElementById('itemName').value = ''; document.getElementById('itemPrice').value = '';
         document.getElementById('itemCategoryVal').value = '';
         document.getElementById('expenseCategoryText').innerText = 'Tap to select category...';
         document.getElementById('expenseCategoryText').style.color = 'var(--text-muted)';
         setCurrentDateTime();
         
-        localStorage.setItem('expensesArray', JSON.stringify(expenses));
-        syncAndRenderAll(); 
-        switchScreen('history');
-    }
+        saveToFirestore();
+        window.syncAndRenderAll(); 
+        window.switchScreen('history');
+    };
 
-    function resetForm() {
+    window.resetForm = () => {
         editIndex = -1;
         document.getElementById('addFormTitle').innerText = 'Add New Expense';
-        let btn = document.getElementById('addBtn');
-        btn.innerHTML = '<span class="material-symbols-outlined">save</span> Save Expense';
-        document.getElementById('itemName').value = '';
-        document.getElementById('itemPrice').value = '';
+        document.getElementById('addBtn').innerHTML = '<span class="material-symbols-outlined">save</span> Save Expense';
+        document.getElementById('itemName').value = ''; document.getElementById('itemPrice').value = '';
         document.getElementById('itemCategoryVal').value = '';
         document.getElementById('expenseCategoryText').innerText = 'Tap to select category...';
         document.getElementById('expenseCategoryText').style.color = 'var(--text-muted)';
         setCurrentDateTime();
-    }
+    };
 
-    function editItem(index) {
+    window.editItem = (index) => {
         document.getElementById('itemName').value = expenses[index].name;
         document.getElementById('itemPrice').value = expenses[index].price;
         
@@ -974,28 +1281,23 @@
         if(expenses[index].date && expenses[index].time) {
             document.getElementById('itemDate').value = expenses[index].date;
             document.getElementById('itemTime').value = expenses[index].time;
-        } else {
-            setCurrentDateTime();
-        }
+        } else { setCurrentDateTime(); }
         
         editIndex = index;
         document.getElementById('addFormTitle').innerText = 'Edit Expense';
-        let btn = document.getElementById('addBtn');
-        btn.innerHTML = '<span class="material-symbols-outlined">update</span> Update Expense';
-        
-        switchScreen('add');
-    }
+        document.getElementById('addBtn').innerHTML = '<span class="material-symbols-outlined">update</span> Update Expense';
+        window.switchScreen('add');
+    };
 
-    function deleteItem(index) {
-        showConfirmModal("Are you sure you want to delete this expense?", () => {
+    window.deleteItem = (index) => {
+        window.showConfirmModal("Are you sure you want to delete this expense?", () => {
             expenses.splice(index, 1);
-            localStorage.setItem('expensesArray', JSON.stringify(expenses));
-            syncAndRenderAll();
+            saveToFirestore();
+            window.syncAndRenderAll();
         });
-    }
+    };
 
-    // --- MAIN SYNCHRONIZATION ENGINE ---
-    function syncAndRenderAll() {
+    window.syncAndRenderAll = () => {
         let budget = parseFloat(document.getElementById('totalBudget').value) || 0;
         let totalSpent = 0; let todaySpent = 0; let yesterdaySpent = 0;
         let todayStr = getTargetDateString(0); let yesterdayStr = getTargetDateString(1);
@@ -1008,23 +1310,18 @@
             totalSpent += exp.price;
             if(exp.date === todayStr) todaySpent += exp.price;
             if(exp.date === yesterdayStr) yesterdaySpent += exp.price;
-            
-            if (categoryTotals[exp.category] === undefined) {
-                categoryTotals[exp.category] = 0;
-            }
+            if (categoryTotals[exp.category] === undefined) { categoryTotals[exp.category] = 0; }
             categoryTotals[exp.category] += exp.price;
         });
 
         let remaining = budget - totalSpent;
         
-        // 1. Update Dashboard Widgets
         document.getElementById('dashBudgetVal').innerText = formatCurrency(budget);
         document.getElementById('dashExpenseVal').innerText = formatCurrency(totalSpent);
         document.getElementById('dashBalanceVal').innerText = formatCurrency(remaining);
         document.getElementById('dashTodayVal').innerText = formatCurrency(todaySpent);
         document.getElementById('dashYesterdayVal').innerText = formatCurrency(yesterdaySpent);
 
-        // 2. Update Progress Bar
         let percentage = budget > 0 ? (totalSpent / budget) * 100 : 0;
         let displayPercent = percentage > 100 ? 100 : percentage;
         
@@ -1032,405 +1329,186 @@
         let bar = document.getElementById('progressBar');
         bar.style.width = displayPercent + "%";
         
-        if(percentage <= 60) {
-            bar.style.backgroundColor = 'var(--success)';
-            document.getElementById('dashUsedVal').style.color = 'var(--success)';
-        } else if(percentage <= 90) {
-            bar.style.backgroundColor = 'var(--warning)';
-            document.getElementById('dashUsedVal').style.color = 'var(--warning)';
-        } else {
-            bar.style.backgroundColor = 'var(--danger)';
-            document.getElementById('dashUsedVal').style.color = 'var(--danger)';
-        }
+        if(percentage <= 60) { bar.style.backgroundColor = 'var(--success)'; document.getElementById('dashUsedVal').style.color = 'var(--success)'; }
+        else if(percentage <= 90) { bar.style.backgroundColor = 'var(--warning)'; document.getElementById('dashUsedVal').style.color = 'var(--warning)'; }
+        else { bar.style.backgroundColor = 'var(--danger)'; document.getElementById('dashUsedVal').style.color = 'var(--danger)'; }
 
-        // 3. Render Category Summary
         let catContainer = document.getElementById('categorySummaryContainer');
         catContainer.innerHTML = '';
         const keys = Object.keys(categoryTotals);
         
-        if(keys.length === 0) {
-            catContainer.innerHTML = '<p style="text-align:center; color:var(--text-muted);">No data to show.</p>';
-        } else {
+        if(keys.length === 0) { catContainer.innerHTML = '<p style="text-align:center; color:var(--text-muted);">No data to show.</p>'; }
+        else {
             keys.sort((a,b) => categoryTotals[b] - categoryTotals[a]).forEach(cat => {
                 catContainer.innerHTML += `
-                    <div class="cat-sum-item">
-                        <span class="cat-sum-name">${cat}</span>
-                        <span class="cat-sum-val">Rs ${formatCurrency(categoryTotals[cat])}</span>
-                    </div>
+                    <div class="cat-sum-item"><span class="cat-sum-name">${cat}</span><span class="cat-sum-val">Rs ${formatCurrency(categoryTotals[cat])}</span></div>
                 `;
             });
         }
 
-        // 4. Render Active Targets 
         let targetContainer = document.getElementById('targetsContainer');
         targetContainer.innerHTML = '';
-        if(targets.length === 0) {
-            targetContainer.innerHTML = '<p style="text-align:center; color:var(--text-muted);">No targets created yet.</p>';
-        } else {
+        if(targets.length === 0) { targetContainer.innerHTML = '<p style="text-align:center; color:var(--text-muted);">No targets created yet.</p>'; }
+        else {
             targets.forEach((target, index) => {
-                let paid = expenses
-                    .filter(exp => exp.category === target.category)
-                    .reduce((sum, exp) => sum + exp.price, 0);
+                let paid = expenses.filter(exp => exp.category === target.category).reduce((sum, exp) => sum + exp.price, 0);
                 let rem = target.amount - paid;
-
                 targetContainer.innerHTML += `
                     <div class="card target-card">
-                        <h4>
-                            <span>${target.name}</span>
-                            <button class="del-target" onclick="deleteTarget(${index})">
-                                <span class="material-symbols-outlined">delete</span>
-                            </button>
-                        </h4>
+                        <h4><span>${target.name}</span><button class="del-target" onclick="window.deleteTarget(${index})"><span class="material-symbols-outlined">delete</span></button></h4>
                         <span class="target-badge">${target.category}</span>
                         <div class="target-stats">
-                            <div class="ts-item">
-                                <small>Target</small>
-                                <span>${formatCurrency(target.amount)}</span>
-                            </div>
-                            <div class="ts-item" style="color: #fca5a5;">
-                                <small>Paid</small>
-                                <span>${formatCurrency(paid)}</span>
-                            </div>
-                            <div class="ts-item" style="color: #6ee7b7;">
-                                <small>Remaining</small>
-                                <span>${formatCurrency(rem)}</span>
-                            </div>
+                            <div class="ts-item"><small>Target</small><span>${formatCurrency(target.amount)}</span></div>
+                            <div class="ts-item" style="color: #fca5a5;"><small>Paid</small><span>${formatCurrency(paid)}</span></div>
+                            <div class="ts-item" style="color: #6ee7b7;"><small>Remaining</small><span>${formatCurrency(rem)}</span></div>
                         </div>
                     </div>
                 `;
             });
         }
+        window.renderTableOnly();
+    };
 
-        // 5. Render History List with dynamic icons
-        renderTableOnly();
-    }
-
-    function renderTableOnly() {
+    window.renderTableOnly = () => {
         let container = document.getElementById('expenseList');
         let searchQuery = document.getElementById('searchBar').value.toLowerCase();
         container.innerHTML = '';
         
-        if (expenses.length === 0) {
-            container.innerHTML = '<p style="text-align:center; color: var(--text-muted); padding: 20px;">No expenses recorded yet.</p>';
-            return;
-        }
+        if (expenses.length === 0) { container.innerHTML = '<p style="text-align:center; color: var(--text-muted); padding: 20px;">No expenses recorded yet.</p>'; return; }
 
         expenses.forEach((exp, originalIndex) => {
             if(exp.name.toLowerCase().includes(searchQuery) || exp.category.toLowerCase().includes(searchQuery)) {
                 let cat = exp.category; 
-                let dateDisplay = exp.date ? formatDateDisplay(exp.date) : '';
-                let timeDisplay = exp.time ? formatTimeDisplay(exp.time) : '';
-                let dateTimeHtml = (dateDisplay || timeDisplay) 
-                    ? `<span class="material-symbols-outlined" style="font-size:14px;">schedule</span> ${dateDisplay} ${timeDisplay}` 
-                    : '';
+                let dateDisplay = exp.date ? formatDateDisplay(exp.date) : ''; let timeDisplay = exp.time ? formatTimeDisplay(exp.time) : '';
+                let dateTimeHtml = (dateDisplay || timeDisplay) ? `<span class="material-symbols-outlined" style="font-size:14px;">schedule</span> ${dateDisplay} ${timeDisplay}` : '';
                 
                 container.innerHTML += `
                     <div class="expense-item">
-                        <div class="expense-icon">
-                            <span class="material-symbols-outlined">${getIconForCategory(cat)}</span>
-                        </div>
+                        <div class="expense-icon"><span class="material-symbols-outlined">${getIconForCategory(cat)}</span></div>
                         <div class="exp-info">
                             <div class="exp-title">${exp.name}</div>
-                            <div class="exp-meta">
-                                <span class="exp-badge">${cat}</span>
-                                ${dateTimeHtml}
-                            </div>
+                            <div class="exp-meta"><span class="exp-badge">${cat}</span>${dateTimeHtml}</div>
                         </div>
                         <div>
                             <div class="exp-amount">Rs ${formatCurrency(exp.price)}</div>
                             <div class="exp-actions">
-                                <button class="icon-btn edit" onclick="editItem(${originalIndex})">
-                                    <span class="material-symbols-outlined">edit</span>
-                                </button>
-                                <button class="icon-btn delete" onclick="deleteItem(${originalIndex})">
-                                    <span class="material-symbols-outlined">delete</span>
-                                </button>
+                                <button class="icon-btn edit" onclick="window.editItem(${originalIndex})"><span class="material-symbols-outlined">edit</span></button>
+                                <button class="icon-btn delete" onclick="window.deleteItem(${originalIndex})"><span class="material-symbols-outlined">delete</span></button>
                             </div>
                         </div>
                     </div>`;
             }
         });
-    }
+    };
 
-    // --- DATA EXPORT & IMPORT (BACKUP/RESTORE) ---
-    function exportData() {
+    window.exportData = () => {
         const backupData = {
-            budget: localStorage.getItem('budget') || "",
-            expensesArray: JSON.parse(localStorage.getItem('expensesArray')) || [],
-            targetsArray: JSON.parse(localStorage.getItem('targetsArray')) || [],
-            userCategoriesArray: JSON.parse(localStorage.getItem('userCategoriesArray')) || DEFAULT_CATEGORIES
+            budget: document.getElementById('totalBudget').value || "",
+            expensesArray: expenses, targetsArray: targets, userCategoriesArray: userCategories
         };
-
-        const dataStr = JSON.stringify(backupData, null, 2);
-        const blob = new Blob([dataStr], { type: "application/json" });
+        const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
         const url = URL.createObjectURL(blob);
-        
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const fileName = `BudgetTracker_Backup_${year}-${month}-${day}.json`;
+        const now = new Date(); const fileName = `BudgetTracker_Backup_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}.json`;
+        const a = document.createElement('a'); a.href = url; a.download = fileName; document.body.appendChild(a); a.click();
+        document.body.removeChild(a); URL.revokeObjectURL(url);
+    };
 
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }
-
-    function handleImportFile(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-
+    window.handleImportFile = (event) => {
+        const file = event.target.files[0]; if (!file) return;
         const reader = new FileReader();
         reader.onload = function(e) {
             try {
                 const importedData = JSON.parse(e.target.result);
-                
-                if (typeof importedData !== 'object' || importedData === null) {
-                    throw new Error("Invalid format.");
-                }
-
+                if (typeof importedData !== 'object' || importedData === null) throw new Error("Invalid format.");
                 pendingImportData = importedData;
-                
-                showConfirmModal("Warning: This will replace ALL your current app data with the imported backup. Continue?", () => {
-                    restoreData(pendingImportData);
-                });
-                
-            } catch (error) {
-                alert("Error: The backup file is invalid or corrupted.");
-                console.error("Import Parsing Error:", error);
-            } finally {
-                event.target.value = ''; 
-            }
+                window.showConfirmModal("Warning: This will replace ALL your current app data with the imported backup. Continue?", () => { window.restoreData(pendingImportData); });
+            } catch (error) { alert("Error: The backup file is invalid or corrupted."); } finally { event.target.value = ''; }
         };
         reader.readAsText(file);
-    }
+    };
 
-    function restoreData(data) {
-        if (data.budget !== undefined) {
-            localStorage.setItem('budget', data.budget);
-            document.getElementById('totalBudget').value = data.budget;
-        }
-        if (Array.isArray(data.expensesArray)) {
-            expenses = data.expensesArray;
-            localStorage.setItem('expensesArray', JSON.stringify(expenses));
-        }
-        if (Array.isArray(data.targetsArray)) {
-            targets = data.targetsArray;
-            localStorage.setItem('targetsArray', JSON.stringify(targets));
-        }
-        if (Array.isArray(data.userCategoriesArray)) {
-            userCategories = data.userCategoriesArray;
-            localStorage.setItem('userCategoriesArray', JSON.stringify(userCategories));
-        }
-
-        migrateData(); 
-        syncAndRenderAll(); 
+    window.restoreData = async (data) => {
+        if (data.budget !== undefined) document.getElementById('totalBudget').value = data.budget;
+        if (Array.isArray(data.expensesArray)) expenses = data.expensesArray;
+        if (Array.isArray(data.targetsArray)) targets = data.targetsArray;
+        if (Array.isArray(data.userCategoriesArray)) userCategories = data.userCategoriesArray;
+        migrateData(); await saveToFirestore(); window.syncAndRenderAll();
         alert("Success: App data has been restored from backup.");
-    }
+    };
 
-    // --- Utilities (PNG & PDF Export) ---
-    function confirmResetData() {
-        showConfirmModal("Warning: This will delete ALL your budgets, targets, and expenses. Are you sure?", () => {
-            localStorage.clear();
-            location.reload();
+    window.confirmResetData = () => {
+        window.showConfirmModal("Warning: This will delete ALL your budgets, targets, and expenses. Are you sure?", async () => {
+            document.getElementById('totalBudget').value = '';
+            expenses = []; targets = []; userCategories = [...DEFAULT_CATEGORIES];
+            await saveToFirestore();
+            window.syncAndRenderAll();
         });
-    }
+    };
 
-    function saveAsPNG() {
-        switchScreen('dashboard');
+    window.saveAsPNG = () => {
+        window.switchScreen('dashboard');
         setTimeout(() => {
-            let element = document.getElementById('screen-dashboard');
-            html2canvas(element, { scale: 2, backgroundColor: "#f8fafc" }).then(function(canvas) { 
-                let link = document.createElement('a');
-                link.download = 'Budget_Dashboard_Report.png';
-                link.href = canvas.toDataURL("image/png");
-                link.click();
+            html2canvas(document.getElementById('screen-dashboard'), { scale: 2, backgroundColor: "#f8fafc" }).then(canvas => { 
+                let link = document.createElement('a'); link.download = 'Budget_Dashboard_Report.png'; link.href = canvas.toDataURL("image/png"); link.click();
             });
         }, 500); 
-    }
+    };
 
-    function generatePDFReport() {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-        let yPos = 20;
-        
-        doc.setFontSize(22);
-        doc.setTextColor(67, 97, 238);
-        doc.text("Budget Tracker Pro - Complete Report", 14, yPos);
-        yPos += 8;
-        
-        doc.setFontSize(10);
-        doc.setTextColor(100, 116, 139);
-        const now = new Date();
-        doc.text(`Generated on: ${now.toLocaleDateString()} at ${now.toLocaleTimeString()}`, 14, yPos);
-        yPos += 15;
+    window.generatePDFReport = () => {
+        const { jsPDF } = window.jspdf; const doc = new jsPDF(); let yPos = 20;
+        doc.setFontSize(22); doc.setTextColor(67, 97, 238); doc.text("Budget Tracker Pro - Complete Report", 14, yPos); yPos += 8;
+        doc.setFontSize(10); doc.setTextColor(100, 116, 139); const now = new Date(); doc.text(`Generated on: ${now.toLocaleDateString()} at ${now.toLocaleTimeString()}`, 14, yPos); yPos += 15;
         
         let budget = parseFloat(document.getElementById('totalBudget').value) || 0;
         let totalSpent = 0; let todaySpent = 0; let yesterdaySpent = 0;
         let todayStr = getTargetDateString(0); let yesterdayStr = getTargetDateString(1);
-        
         let categoryTotals = {};
-        userCategories.forEach(cat => categoryTotals[cat] = 0);
-        targets.forEach(t => categoryTotals[t.category] = 0);
-
+        userCategories.forEach(cat => categoryTotals[cat] = 0); targets.forEach(t => categoryTotals[t.category] = 0);
         expenses.forEach(exp => {
-            totalSpent += exp.price;
-            if(exp.date === todayStr) todaySpent += exp.price;
-            if(exp.date === yesterdayStr) yesterdaySpent += exp.price;
-            let cat = exp.category || 'Other';
-            if (categoryTotals[cat] === undefined) {
-                categoryTotals[cat] = 0;
-            }
-            categoryTotals[cat] += exp.price;
+            totalSpent += exp.price; if(exp.date === todayStr) todaySpent += exp.price; if(exp.date === yesterdayStr) yesterdaySpent += exp.price;
+            let cat = exp.category || 'Other'; if (categoryTotals[cat] === undefined) { categoryTotals[cat] = 0; } categoryTotals[cat] += exp.price;
         });
 
-        let remaining = budget - totalSpent;
-        let percentage = budget > 0 ? ((totalSpent / budget) * 100).toFixed(1) : "0.0";
-        
-        doc.setFontSize(14);
-        doc.setTextColor(30, 41, 59);
-        doc.text("1. Budget Summary", 14, yPos);
-        yPos += 6;
-        
+        let remaining = budget - totalSpent; let percentage = budget > 0 ? ((totalSpent / budget) * 100).toFixed(1) : "0.0";
+        doc.setFontSize(14); doc.setTextColor(30, 41, 59); doc.text("1. Budget Summary", 14, yPos); yPos += 6;
         doc.autoTable({
-            startY: yPos,
-            head: [['Metric', 'Amount']],
-            body: [
-                ['Total Budget', `Rs ${formatCurrency(budget)}`],
-                ['Total Expense', `Rs ${formatCurrency(totalSpent)}`],
-                ['Remaining Balance', `Rs ${formatCurrency(remaining)}`],
-                ['Budget Used', `${percentage}%`],
-                ['Today\'s Expense', `Rs ${formatCurrency(todaySpent)}`],
-                ['Yesterday\'s Expense', `Rs ${formatCurrency(yesterdaySpent)}`]
-            ],
-            theme: 'grid',
-            headStyles: { fillColor: [67, 97, 238] }
-        });
-        yPos = doc.lastAutoTable.finalY + 15;
+            startY: yPos, head: [['Metric', 'Amount']],
+            body: [['Total Budget', `Rs ${formatCurrency(budget)}`], ['Total Expense', `Rs ${formatCurrency(totalSpent)}`], ['Remaining Balance', `Rs ${formatCurrency(remaining)}`], ['Budget Used', `${percentage}%`], ['Today\'s Expense', `Rs ${formatCurrency(todaySpent)}`], ['Yesterday\'s Expense', `Rs ${formatCurrency(yesterdaySpent)}`]],
+            theme: 'grid', headStyles: { fillColor: [67, 97, 238] }
+        }); yPos = doc.lastAutoTable.finalY + 15;
         
-        doc.setFontSize(14);
-        doc.text("2. Payment Targets Summary", 14, yPos);
-        yPos += 6;
-        
+        doc.setFontSize(14); doc.text("2. Payment Targets Summary", 14, yPos); yPos += 6;
         let targetBody = targets.map(t => {
             let paid = expenses.filter(exp => exp.category === t.category).reduce((sum, exp) => sum + exp.price, 0);
             return [t.name, t.category, `Rs ${formatCurrency(t.amount)}`, `Rs ${formatCurrency(paid)}`, `Rs ${formatCurrency(t.amount - paid)}`];
         });
         if(targetBody.length === 0) targetBody = [['No targets created', '', '', '', '']];
-        
-        doc.autoTable({
-            startY: yPos,
-            head: [['Target Name', 'Category', 'Target Amount', 'Paid', 'Remaining']],
-            body: targetBody,
-            theme: 'grid',
-            headStyles: { fillColor: [67, 97, 238] }
-        });
-        yPos = doc.lastAutoTable.finalY + 15;
+        doc.autoTable({ startY: yPos, head: [['Target Name', 'Category', 'Target Amount', 'Paid', 'Remaining']], body: targetBody, theme: 'grid', headStyles: { fillColor: [67, 97, 238] }}); yPos = doc.lastAutoTable.finalY + 15;
         
         if(yPos > 240) { doc.addPage(); yPos = 20; }
-        
-        doc.setFontSize(14);
-        doc.text("3. Category Expense Summary", 14, yPos);
-        yPos += 6;
-        
-        let catBody = Object.keys(categoryTotals).sort((a,b) => categoryTotals[b] - categoryTotals[a]).map(cat => {
-            return [cat, `Rs ${formatCurrency(categoryTotals[cat])}`];
-        });
+        doc.setFontSize(14); doc.text("3. Category Expense Summary", 14, yPos); yPos += 6;
+        let catBody = Object.keys(categoryTotals).sort((a,b) => categoryTotals[b] - categoryTotals[a]).map(cat => [cat, `Rs ${formatCurrency(categoryTotals[cat])}`]);
         if(catBody.length === 0) catBody = [['No categories used', '']];
-        
-        doc.autoTable({
-            startY: yPos,
-            head: [['Category Name', 'Total Expense']],
-            body: catBody,
-            theme: 'grid',
-            headStyles: { fillColor: [67, 97, 238] }
-        });
-        yPos = doc.lastAutoTable.finalY + 15;
+        doc.autoTable({ startY: yPos, head: [['Category Name', 'Total Expense']], body: catBody, theme: 'grid', headStyles: { fillColor: [67, 97, 238] }}); yPos = doc.lastAutoTable.finalY + 15;
         
         if(yPos > 240) { doc.addPage(); yPos = 20; }
-        doc.setFontSize(14);
-        doc.text("4. Expense Statistics", 14, yPos);
-        yPos += 6;
-        
-        let expCount = expenses.length;
-        let highest = expCount > 0 ? Math.max(...expenses.map(e => e.price)) : 0;
-        let lowest = expCount > 0 ? Math.min(...expenses.map(e => e.price)) : 0;
-        let avg = expCount > 0 ? (totalSpent / expCount).toFixed(2) : 0;
-        let uniqueCats = Object.keys(categoryTotals).length;
-        
-        doc.autoTable({
-            startY: yPos,
-            head: [['Statistic', 'Value']],
-            body: [
-                ['Total Number of Expenses', expCount],
-                ['Highest Expense', `Rs ${formatCurrency(highest)}`],
-                ['Lowest Expense', `Rs ${formatCurrency(lowest)}`],
-                ['Average Expense', `Rs ${formatCurrency(avg)}`],
-                ['Total Categories Used', uniqueCats]
-            ],
-            theme: 'grid',
-            headStyles: { fillColor: [67, 97, 238] }
-        });
-        yPos = doc.lastAutoTable.finalY + 15;
+        doc.setFontSize(14); doc.text("4. Expense Statistics", 14, yPos); yPos += 6;
+        let expCount = expenses.length; let highest = expCount > 0 ? Math.max(...expenses.map(e => e.price)) : 0; let lowest = expCount > 0 ? Math.min(...expenses.map(e => e.price)) : 0;
+        let avg = expCount > 0 ? (totalSpent / expCount).toFixed(2) : 0; let uniqueCats = Object.keys(categoryTotals).length;
+        doc.autoTable({ startY: yPos, head: [['Statistic', 'Value']], body: [['Total Number of Expenses', expCount], ['Highest Expense', `Rs ${formatCurrency(highest)}`], ['Lowest Expense', `Rs ${formatCurrency(lowest)}`], ['Average Expense', `Rs ${formatCurrency(avg)}`], ['Total Categories Used', uniqueCats]], theme: 'grid', headStyles: { fillColor: [67, 97, 238] }}); yPos = doc.lastAutoTable.finalY + 15;
         
         if(yPos > 240) { doc.addPage(); yPos = 20; }
-        doc.setFontSize(14);
-        doc.text("5. Complete Expense History", 14, yPos);
-        yPos += 6;
-        
-        let historyBody = expenses.map((exp, i) => {
-            return [
-                i + 1,
-                exp.name,
-                exp.category,
-                `Rs ${formatCurrency(exp.price)}`,
-                exp.date ? formatDateDisplay(exp.date) : '-',
-                exp.time ? formatTimeDisplay(exp.time) : '-'
-            ];
-        });
+        doc.setFontSize(14); doc.text("5. Complete Expense History", 14, yPos); yPos += 6;
+        let historyBody = expenses.map((exp, i) => [i + 1, exp.name, exp.category, `Rs ${formatCurrency(exp.price)}`, exp.date ? formatDateDisplay(exp.date) : '-', exp.time ? formatTimeDisplay(exp.time) : '-']);
         if(historyBody.length === 0) historyBody = [['No expenses recorded', '', '', '', '', '']];
-        
-        doc.autoTable({
-            startY: yPos,
-            head: [['S.No', 'Name', 'Category', 'Amount', 'Date', 'Time']],
-            body: historyBody,
-            theme: 'striped',
-            headStyles: { fillColor: [67, 97, 238] },
-            didDrawPage: function (data) {
-                let str = "Page " + doc.internal.getNumberOfPages();
-                doc.setFontSize(10);
-                doc.setTextColor(150, 150, 150);
-                let pageSize = doc.internal.pageSize;
-                let pageHeight = pageSize.height ? pageSize.height : pageSize.getHeight();
-                doc.text(str, data.settings.margin.left, pageHeight - 10);
-            }
-        });
-        yPos = doc.lastAutoTable.finalY + 15;
+        doc.autoTable({ startY: yPos, head: [['S.No', 'Name', 'Category', 'Amount', 'Date', 'Time']], body: historyBody, theme: 'striped', headStyles: { fillColor: [67, 97, 238] }, didDrawPage: function (data) { doc.setFontSize(10); doc.setTextColor(150, 150, 150); doc.text("Page " + doc.internal.getNumberOfPages(), data.settings.margin.left, doc.internal.pageSize.height - 10); }}); yPos = doc.lastAutoTable.finalY + 15;
         
         if(yPos > 240) { doc.addPage(); yPos = 20; }
-        doc.setFontSize(14);
-        doc.setTextColor(30, 41, 59);
-        doc.text("6. Final Summary", 14, yPos);
-        yPos += 6;
-        
-        doc.autoTable({
-            startY: yPos,
-            body: [
-                ['Total Budget Allocated', `Rs ${formatCurrency(budget)}`],
-                ['Total Amount Spent', `Rs ${formatCurrency(totalSpent)}`],
-                ['Final Remaining Balance', `Rs ${formatCurrency(remaining)}`]
-            ],
-            theme: 'grid',
-            styles: { fontStyle: 'bold', fontSize: 12 },
-            bodyStyles: { fillColor: [248, 250, 252] }
-        });
+        doc.setFontSize(14); doc.setTextColor(30, 41, 59); doc.text("6. Final Summary", 14, yPos); yPos += 6;
+        doc.autoTable({ startY: yPos, body: [['Total Budget Allocated', `Rs ${formatCurrency(budget)}`], ['Total Amount Spent', `Rs ${formatCurrency(totalSpent)}`], ['Final Remaining Balance', `Rs ${formatCurrency(remaining)}`]], theme: 'grid', styles: { fontStyle: 'bold', fontSize: 12 }, bodyStyles: { fillColor: [248, 250, 252] }});
         
         doc.save('Budget_Tracker_Complete_Report.pdf');
-    }
+    };
 </script>
 </body>
 </html>
